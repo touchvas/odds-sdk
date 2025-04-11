@@ -568,7 +568,7 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
 
-	producerID := rds.GetProducerID(matchID)
+	producerID, _ := rds.GetProducerID(matchID)
 
 	if producerID == 1 || producerID == 4 {
 
@@ -866,12 +866,12 @@ func (rds RedisFeed) SetProducerID(matchID, producerID int64) error {
 }
 
 // gets the active producer for a particular match
-func (rds RedisFeed) GetProducerID(matchID int64) int64 {
+func (rds RedisFeed) GetProducerID(matchID int64) (id, status int64) {
 
 	redisKey := fmt.Sprintf(constants.ProducerTemplate, matchID)
 	producer, _ := utils.GetRedisKey(rds.RedisClient, redisKey)
 	producerID, _ := strconv.ParseInt(producer, 10, 64)
-	return producerID
+	return producerID, rds.GetProducerStatus(producerID)
 
 }
 
@@ -1178,4 +1178,13 @@ func (rds RedisFeed) GetDefaultMarketID(matchID, sportID int64) int64 {
 	}
 
 	return 186
+}
+
+func (rds RedisFeed) GetProducerStatus(producerID int64) int64 {
+
+	redisKey := fmt.Sprintf("producer:status:%d", producerID)
+	dt, _ := utils.GetRedisKey(rds.RedisClient, redisKey)
+	producerStatus, _ := strconv.ParseInt(dt, 10, 64)
+	return producerStatus
+
 }
