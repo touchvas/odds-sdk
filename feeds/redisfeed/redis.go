@@ -854,7 +854,7 @@ func (rds RedisFeed) DeleteAllMarkets(producerID, matchID int64) error {
 // DeleteAll deletes all feeds data
 func (rds RedisFeed) DeleteAll() error {
 
-	return utils.DeleteKeysByPattern(rds.RedisClient, "feeds:*")
+	return utils.DeleteKeysByPattern(rds.RedisClient, fmt.Sprintf("%s:*", NameSpace))
 
 }
 
@@ -1137,12 +1137,6 @@ func (rds RedisFeed) DeleteMatchOdds(matchID int64) {
 	stasKey := fmt.Sprintf("fixture-stats:%d", matchID)
 	keysPattern = append(keysPattern, stasKey)
 
-	marketsCountPrematch := fmt.Sprintf("fixture:market-count:%s:%d", "prematch_markets", matchID)
-	keysPattern = append(keysPattern, marketsCountPrematch)
-
-	marketsCountLive := fmt.Sprintf("fixture:market-count:%s:%d", "live_markets", matchID)
-	keysPattern = append(keysPattern, marketsCountLive)
-
 	matchPriorityKey := fmt.Sprintf("match-priority:%d", matchID)
 	keysPattern = append(keysPattern, matchPriorityKey)
 
@@ -1186,5 +1180,51 @@ func (rds RedisFeed) GetProducerStatus(producerID int64) int64 {
 	dt, _ := utils.GetRedisKey(rds.RedisClient, redisKey)
 	producerStatus, _ := strconv.ParseInt(dt, 10, 64)
 	return producerStatus
+
+}
+
+// GetFixtureStatus gets fixture status for the supplied matchID
+func (rds RedisFeed) GetFixtureStatus(matchID int64) *models.FixtureStatus {
+
+	market := new(models.FixtureStatus)
+
+	redisKey := fmt.Sprintf("fixture-stats:%d", matchID)
+
+	data, err := utils.GetRedisKey(rds.RedisClient, redisKey)
+	if err != nil {
+
+		log.Printf("error getting redis key %s | %s", redisKey, err.Error())
+	}
+
+	if len(data) == 0 {
+
+		return nil
+	}
+
+	err = json.Unmarshal([]byte(data), market)
+	if err != nil {
+
+		log.Printf("%s | GetFixtureStatus failed to unmarshall %s to JSON %s", redisKey, data, err.Error())
+		return nil
+	}
+
+	return market
+
+}
+
+// SetFixtureStatus sets fixture status for the supplied matchID
+func (rds RedisFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) error {
+
+	redisKey := fmt.Sprintf("fixture-stats:%d", matchID)
+
+	js, _ := json.Marshal(fx)
+
+	err := utils.SetRedisKey(rds.RedisClient, redisKey, string(js))
+	if err != nil {
+
+		log.Printf("error setting redis key %s | %s", redisKey, err.Error())
+	}
+
+	return err
 
 }

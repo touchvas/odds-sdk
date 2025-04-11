@@ -31,6 +31,7 @@ type FixtureStatus struct {
 	EventTime        string `json:"event_time"`
 	HomePenaltyScore int64  `json:"home_penalty_score"`
 	AwayPenaltyScore int64  `json:"away_penalty_score"`
+	ActiveMarkets    int64  `json:"markets"`
 }
 
 type Outcome struct {

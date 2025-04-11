@@ -41,4 +41,10 @@ type Feed interface {
 
 	// GetDefaultMarketID Get the default marketID for the specified sportID
 	GetDefaultMarketID(matchID, sportID int64) int64
+
+	// GetFixtureStatus gets fixture status for the supplied matchID
+	GetFixtureStatus(matchID int64) *models.FixtureStatus
+
+	// SetFixtureStatus sets fixture status for the supplied matchID
+	SetFixtureStatus(matchID int64, fx models.FixtureStatus) error
 }
