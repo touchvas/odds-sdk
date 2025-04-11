@@ -1184,7 +1184,7 @@ func (rds RedisFeed) GetProducerStatus(producerID int64) int64 {
 }
 
 // GetFixtureStatus gets fixture status for the supplied matchID
-func (rds RedisFeed) GetFixtureStatus(matchID int64) *models.FixtureStatus {
+func (rds RedisFeed) GetFixtureStatus(matchID int64) models.FixtureStatus {
 
 	market := new(models.FixtureStatus)
 
@@ -1198,17 +1198,21 @@ func (rds RedisFeed) GetFixtureStatus(matchID int64) *models.FixtureStatus {
 
 	if len(data) == 0 {
 
-		return nil
+		return models.FixtureStatus{
+			Status: 0,
+		}
 	}
 
 	err = json.Unmarshal([]byte(data), market)
 	if err != nil {
 
 		log.Printf("%s | GetFixtureStatus failed to unmarshall %s to JSON %s", redisKey, data, err.Error())
-		return nil
+		return models.FixtureStatus{
+			Status: 0,
+		}
 	}
 
-	return market
+	return *market
 
 }
 
