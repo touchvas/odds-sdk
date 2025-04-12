@@ -1199,7 +1199,9 @@ func (rds RedisFeed) GetFixtureStatus(matchID int64) models.FixtureStatus {
 	if len(data) == 0 {
 
 		return models.FixtureStatus{
-			Status: 0,
+			Status:     0,
+			StatusName: "Not Started",
+			StatusCode: 0,
 		}
 	}
 
@@ -1208,7 +1210,9 @@ func (rds RedisFeed) GetFixtureStatus(matchID int64) models.FixtureStatus {
 
 		log.Printf("%s | GetFixtureStatus failed to unmarshall %s to JSON %s", redisKey, data, err.Error())
 		return models.FixtureStatus{
-			Status: 0,
+			Status:     0,
+			StatusName: "Not Started",
+			StatusCode: 0,
 		}
 	}
 
