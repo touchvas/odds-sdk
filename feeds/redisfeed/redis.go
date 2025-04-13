@@ -1194,13 +1194,10 @@ func (rds RedisFeed) GetFixtureStatus(matchID int64) models.FixtureStatus {
 
 	redisKey := fmt.Sprintf("fixture-stats:%d", matchID)
 
-	data, err := utils.GetRedisKey(rds.RedisClient, redisKey)
-	if err != nil {
-
-		log.Printf("error getting redis key %s | %s", redisKey, err.Error())
-	}
-
+	data, _ := utils.GetRedisKey(rds.RedisClient, redisKey)
 	if len(data) == 0 {
+
+		rds.RequestMatchTime(matchID)
 
 		return models.FixtureStatus{
 			Status:     0,
@@ -1209,7 +1206,7 @@ func (rds RedisFeed) GetFixtureStatus(matchID int64) models.FixtureStatus {
 		}
 	}
 
-	err = json.Unmarshal([]byte(data), market)
+	err := json.Unmarshal([]byte(data), market)
 	if err != nil {
 
 		log.Printf("%s | GetFixtureStatus failed to unmarshall %s to JSON %s", redisKey, data, err.Error())
@@ -1244,5 +1241,11 @@ func (rds RedisFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) er
 func (rds RedisFeed) RequestOdds(matchID int64) error {
 
 	return utils.PublishToNats(rds.NatsClient, "new_fixture", fmt.Sprintf("%d", matchID))
+
+}
+
+func (rds RedisFeed) RequestMatchTime(matchID int64) error {
+
+	return utils.PublishToNats(rds.NatsClient, "match_timeline", fmt.Sprintf("%d", matchID))
 
 }
