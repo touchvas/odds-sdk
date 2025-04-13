@@ -548,13 +548,19 @@ func (rds RedisFeed) GetMarket(producerID, matchID, marketID int64, specifier st
 	if !keyExists {
 
 		rds.RequestOdds(matchID)
-		//log.Printf("key %s does not exists", redisMarketKey)
 		return nil
 	}
 
 	market := new(models.Market)
 
 	matchDataAsString, _ := utils.GetRedisKey(rds.RedisClient, redisMarketKey)
+
+	if len(matchDataAsString) == 0 {
+
+		rds.RequestOdds(matchID)
+		return nil
+	}
+
 	err := json.Unmarshal([]byte(matchDataAsString), market)
 	if err != nil {
 
@@ -1244,11 +1250,14 @@ func (rds RedisFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) er
 
 func (rds RedisFeed) RequestOdds(matchID int64) error {
 
+	log.Printf("matchID %d | RequestOdds", matchID)
 	return utils.PublishToNats(rds.NatsClient, "odds_recovery", fmt.Sprintf("%d", matchID))
 
 }
 
 func (rds RedisFeed) RequestMatchTime(matchID int64) error {
+
+	log.Printf("matchID %d | RequestMatchTime", matchID)
 
 	return utils.PublishToNats(rds.NatsClient, "match_timeline", fmt.Sprintf("%d", matchID))
 
