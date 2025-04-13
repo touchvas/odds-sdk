@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis"
 	goutils "github.com/mudphilo/go-utils"
+	nats "github.com/nats-io/nats.go"
 	"github.com/touchvas/odds-sdk/constants"
 	"github.com/touchvas/odds-sdk/feeds"
 	"github.com/touchvas/odds-sdk/models"
@@ -22,6 +23,7 @@ var NameSpace = os.Getenv("ODDS_FEED_NAMESPACE")
 type RedisFeed struct {
 	feeds.Feed
 	RedisClient *redis.Client
+	NatsClient  *nats.Conn
 }
 
 var instance *RedisFeed
@@ -544,7 +546,8 @@ func (rds RedisFeed) GetMarket(producerID, matchID, marketID int64, specifier st
 	keyExists := rds.keyExist(redisMarketKey)
 	if !keyExists {
 
-		log.Printf("key %s does not exists", redisMarketKey)
+		rds.RequestOdds(matchID)
+		//log.Printf("key %s does not exists", redisMarketKey)
 		return nil
 	}
 
@@ -625,7 +628,8 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 
 		}
 
-		log.Printf("key %s does not exists", redisMarketKey)
+		rds.RequestOdds(matchID)
+
 		return nil
 	}
 
@@ -767,7 +771,7 @@ func (rds RedisFeed) GetSpecifiedMarkets(producerID, matchID int64, marketList [
 
 	if !keyExists {
 
-		log.Printf("GetSpecifiedMarkets - %s key does not exist", keyName)
+		rds.RequestOdds(matchID)
 		return nil
 	}
 
@@ -1234,5 +1238,11 @@ func (rds RedisFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) er
 	}
 
 	return err
+
+}
+
+func (rds RedisFeed) RequestOdds(matchID int64) error {
+
+	return utils.PublishToNats(rds.NatsClient, "new_fixture", fmt.Sprintf("%d", matchID))
 
 }

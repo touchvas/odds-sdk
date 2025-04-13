@@ -58,7 +58,8 @@ func GetRedisKey(conn *redis.Client, key string) (string, error) {
 	data, err := conn.Get(key).Result()
 	if err != nil {
 
-		return data, fmt.Errorf("error getting key %s: %v", key, err)
+		//return data, fmt.Errorf("error getting key %s: %v", key, err)
+		return "", err
 	}
 
 	return data, err
