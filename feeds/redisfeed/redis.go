@@ -418,7 +418,6 @@ func (rds RedisFeed) BetStop(producerID, matchID, status int64, statusName strin
 	keyExists := rds.keyExist(keyName)
 	if !keyExists {
 
-		log.Printf("got bet stop for a match that does not exist in our record - %s ", keyName)
 		return fmt.Errorf("got bet stop for a match that does not exist in our record - %s ", keyName)
 	}
 
@@ -502,7 +501,7 @@ func (rds RedisFeed) GetAllMarkets(producerID, matchID int64) []models.Market {
 
 	if !keyExists {
 
-		log.Printf("got bet stop for a match that does not exist in our record - %s ", keyName)
+		rds.RequestOdds(matchID)
 		return nil
 	}
 
@@ -689,7 +688,7 @@ func (rds RedisFeed) GetAllMarketsOrderByList(producerID, matchID int64, marketO
 
 	if !keyExists {
 
-		log.Printf("got bet stop for a match that does not exist in our record - %s ", keyName)
+		rds.RequestOdds(matchID)
 		return nil
 	}
 
@@ -847,7 +846,6 @@ func (rds RedisFeed) DeleteAllMarkets(producerID, matchID int64) error {
 
 	if !keyExists {
 
-		log.Printf("got bet stop for a match that does not exist in our record - %s ", keyName)
 		return nil
 	}
 
