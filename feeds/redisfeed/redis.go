@@ -37,6 +37,7 @@ func GetFeedsInstance() *RedisFeed {
 		fmt.Println("Creating Redis Feeds instance")
 		instance = &RedisFeed{
 			RedisClient: utils.RedisClient(),
+			NatsClient:  utils.GetNatsConnection(),
 		}
 	})
 
