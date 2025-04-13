@@ -7,6 +7,7 @@ import (
 	goutils "github.com/mudphilo/go-utils"
 	nats "github.com/nats-io/nats.go"
 	"github.com/touchvas/odds-sdk/constants"
+	"github.com/touchvas/odds-sdk/constants/sport_event_status"
 	"github.com/touchvas/odds-sdk/feeds"
 	"github.com/touchvas/odds-sdk/models"
 	"github.com/touchvas/odds-sdk/utils"
@@ -1144,6 +1145,10 @@ func (rds RedisFeed) DeleteMatchOdds(matchID int64) {
 	matchPriorityKey := fmt.Sprintf("match-priority:%d", matchID)
 	keysPattern = append(keysPattern, matchPriorityKey)
 
+	// delete match date
+	matchDateKeys := fmt.Sprintf("match-date:%d", matchID)
+	keysPattern = append(keysPattern, matchDateKeys)
+
 	for _, key := range keysPattern {
 
 		if strings.Contains(key, "*") {
@@ -1201,7 +1206,7 @@ func (rds RedisFeed) GetFixtureStatus(matchID int64) models.FixtureStatus {
 
 		return models.FixtureStatus{
 			Status:     0,
-			StatusName: "Not Started",
+			StatusName: sport_event_status.NotStarted,
 			StatusCode: 0,
 		}
 	}
@@ -1212,7 +1217,7 @@ func (rds RedisFeed) GetFixtureStatus(matchID int64) models.FixtureStatus {
 		log.Printf("%s | GetFixtureStatus failed to unmarshall %s to JSON %s", redisKey, data, err.Error())
 		return models.FixtureStatus{
 			Status:     0,
-			StatusName: "Not Started",
+			StatusName: sport_event_status.NotStarted,
 			StatusCode: 0,
 		}
 	}
@@ -1240,7 +1245,7 @@ func (rds RedisFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) er
 
 func (rds RedisFeed) RequestOdds(matchID int64) error {
 
-	return utils.PublishToNats(rds.NatsClient, "new_fixture", fmt.Sprintf("%d", matchID))
+	return utils.PublishToNats(rds.NatsClient, "odds_recovery", fmt.Sprintf("%d", matchID))
 
 }
 
