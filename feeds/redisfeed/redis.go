@@ -1251,7 +1251,7 @@ func (rds RedisFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) er
 func (rds RedisFeed) RequestOdds(matchID int64) error {
 
 	log.Printf("matchID %d | RequestOdds", matchID)
-	return utils.PublishToNats(rds.NatsClient, "odds_recovery", fmt.Sprintf("%d", matchID))
+	return utils.PublishToNats(rds.NatsClient, "odds_recovery", map[string]interface{}{"match_id": matchID})
 
 }
 
@@ -1259,6 +1259,6 @@ func (rds RedisFeed) RequestMatchTime(matchID int64) error {
 
 	log.Printf("matchID %d | RequestMatchTime", matchID)
 
-	return utils.PublishToNats(rds.NatsClient, "match_timeline", fmt.Sprintf("%d", matchID))
+	return utils.PublishToNats(rds.NatsClient, "match_timeline", map[string]interface{}{"match_id": matchID})
 
 }
