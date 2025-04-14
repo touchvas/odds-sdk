@@ -4,6 +4,7 @@ type OddsChange struct {
 	ConsumerArrivalTime int64         `json:"consumer_arrival_time"`
 	ProducerStatus      int64         `json:"producer_status"`
 	PublishTimestamp    int64         `json:"publish_timestamp"`
+	BetradarTimestamp   int64         `json:"betradar_timestamp"`
 	ProcessingTime      int64         `json:"processing_time"`
 	ReceivedTimestamp   int64         `json:"received_timestamp"`
 	NetworkLatency      int64         `json:"network_latency"`
@@ -54,6 +55,9 @@ type Outcome struct {
 
 type Market struct {
 
+	// MarketURL market url
+	MarketURL string `json:"market_url"  validate:"required"`
+
 	//MarketName market name
 	MarketName string `json:"market_name"  validate:"required"`
 
@@ -61,7 +65,7 @@ type Market struct {
 	MarketID int64 `json:"market_id"  validate:"required"`
 
 	//Specifier market line
-	Specifier string `json:"specifier"  validate:"required"`
+	Specifier string `json:"specifiers"  validate:"required"`
 
 	//StatusName market status name
 	StatusName string `json:"status_name"`

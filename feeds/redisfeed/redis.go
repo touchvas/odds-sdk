@@ -184,7 +184,7 @@ func (rds RedisFeed) OddsChange(odds models.OddsChange) (int, error) {
 			log.Printf("all keys %s ", string(jsonValue))
 		}
 
-		ttl := time.Now().UnixMilli() - odds.ReceivedTimestamp
+		ttl := time.Now().UnixMilli() - odds.BetradarTimestamp
 		processingTime := time.Now().UnixMilli() - odds.ConsumerArrivalTime
 
 		// log time taken to process odds, we have to process within 2s
@@ -377,7 +377,7 @@ func (rds RedisFeed) OddsChange(odds models.OddsChange) (int, error) {
 	totalMarketsKey := fmt.Sprintf("%s:total-markets:%d", NameSpace, odds.MatchID)
 	utils.SetRedisKey(rds.RedisClient, totalMarketsKey, fmt.Sprintf("%d", len(uniqueTotalMarkets)))
 
-	ttl := time.Now().UnixMilli() - odds.ReceivedTimestamp
+	ttl := time.Now().UnixMilli() - odds.BetradarTimestamp
 
 	processingTime := time.Now().UnixMilli() - odds.ConsumerArrivalTime
 
