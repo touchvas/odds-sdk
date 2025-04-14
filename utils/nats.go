@@ -14,8 +14,13 @@ func PublishToNats(nc *nats.Conn, natsTopic string, payload interface{}) error {
 	payloadByte, _ := json.Marshal(payload)
 	queueName := fmt.Sprintf("%s.%s", servicePrefix, natsTopic)
 
-	return nc.Publish(queueName, payloadByte)
+	err := nc.Publish(queueName, payloadByte)
+	if err != nil {
 
+		log.Printf("failed to publish to nats %s | err %s ", queueName, err.Error())
+	}
+
+	return err
 }
 
 // GetNatsConnection gets nats connection connection

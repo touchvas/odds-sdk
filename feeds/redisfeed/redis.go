@@ -547,6 +547,7 @@ func (rds RedisFeed) GetMarket(producerID, matchID, marketID int64, specifier st
 	keyExists := rds.keyExist(redisMarketKey)
 	if !keyExists {
 
+		log.Printf("missing key %s", redisMarketKey)
 		rds.RequestOdds(matchID)
 		return nil
 	}
@@ -557,6 +558,7 @@ func (rds RedisFeed) GetMarket(producerID, matchID, marketID int64, specifier st
 
 	if len(matchDataAsString) == 0 {
 
+		log.Printf("missing data from key %s", redisMarketKey)
 		rds.RequestOdds(matchID)
 		return nil
 	}
