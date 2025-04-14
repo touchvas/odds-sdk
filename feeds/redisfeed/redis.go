@@ -50,7 +50,7 @@ func (rds RedisFeed) OddsChange(odds models.OddsChange) (int, error) {
 
 	DebugMatchID, _ := strconv.ParseInt(os.Getenv("DEBUG_MATCH_ID"), 10, 64)
 
-	log.Printf("Odds Change | %d | markets %d | producerID %d ", odds.MatchID, len(odds.Markets), odds.ProducerID)
+	//log.Printf("Odds Change | %d | markets %d | producerID %d ", odds.MatchID, len(odds.Markets), odds.ProducerID)
 
 	defaultMarketID := int64(0)
 
@@ -402,7 +402,7 @@ func (rds RedisFeed) BetStop(producerID, matchID, status int64, statusName strin
 
 	arrival := time.Now().UnixMilli()
 
-	log.Printf("Bet Stop | %d | producerID %d ", matchID, producerID)
+	// log.Printf("Bet Stop | %d | producerID %d ", matchID, producerID)
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -547,7 +547,6 @@ func (rds RedisFeed) GetMarket(producerID, matchID, marketID int64, specifier st
 	keyExists := rds.keyExist(redisMarketKey)
 	if !keyExists {
 
-		log.Printf("missing key %s", redisMarketKey)
 		rds.RequestOdds(matchID)
 		return nil
 	}
@@ -558,7 +557,6 @@ func (rds RedisFeed) GetMarket(producerID, matchID, marketID int64, specifier st
 
 	if len(matchDataAsString) == 0 {
 
-		log.Printf("missing data from key %s", redisMarketKey)
 		rds.RequestOdds(matchID)
 		return nil
 	}
@@ -943,8 +941,6 @@ func (rds RedisFeed) getAllMarketsOrderByPriority(producerID, matchID int64, mar
 
 	}
 
-	log.Printf("market keys for matchID %d | %d keys", matchID, len(keys))
-
 	err := json.Unmarshal([]byte(keysData), &keys)
 	if err != nil {
 
@@ -1252,14 +1248,11 @@ func (rds RedisFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) er
 
 func (rds RedisFeed) RequestOdds(matchID int64) error {
 
-	log.Printf("matchID %d | RequestOdds", matchID)
 	return utils.PublishToNats(rds.NatsClient, "odds_recovery", map[string]interface{}{"match_id": matchID})
 
 }
 
 func (rds RedisFeed) RequestMatchTime(matchID int64) error {
-
-	log.Printf("matchID %d | RequestMatchTime", matchID)
 
 	return utils.PublishToNats(rds.NatsClient, "match_timeline", map[string]interface{}{"match_id": matchID})
 
