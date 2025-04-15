@@ -418,7 +418,7 @@ func (rds RedisFeed) BetStop(producerID, matchID, status int64, statusName strin
 	keyExists := rds.keyExist(keyName)
 	if !keyExists {
 
-		return fmt.Errorf("got bet stop for a match that does not exist in our record - %s ", keyName)
+		return nil
 	}
 
 	matchData := new([]models.Market)
