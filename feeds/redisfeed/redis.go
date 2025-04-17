@@ -639,7 +639,7 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 							ProducerID:  producerID,
 							Probability: v.Probability,
 							EventType:   "match",
-							EventPrefix: "st",
+							EventPrefix: "sr",
 						}
 					}
 				}
@@ -684,7 +684,7 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 				ProducerID:  producerID,
 				Probability: v.Probability,
 				EventType:   "match",
-				EventPrefix: "st",
+				EventPrefix: "sr",
 			}
 		}
 	}
