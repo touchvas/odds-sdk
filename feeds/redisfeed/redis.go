@@ -179,6 +179,9 @@ func (rds RedisFeed) OddsChange(odds models.OddsChange) (int, error) {
 		totalMarketsKey := fmt.Sprintf("%s:total-markets:%d", NameSpace, odds.MatchID)
 		utils.SetRedisKey(rds.RedisClient, totalMarketsKey, fmt.Sprintf("%d", len(uniqueTotalMarkets)))
 
+		sportsKey := fmt.Sprintf("sport-id:%d", odds.MatchID)
+		utils.SetRedisKey(rds.RedisClient, sportsKey, fmt.Sprintf("%d", odds.SportID))
+
 		if DebugMatchID == odds.MatchID {
 
 			log.Printf("all keys %s ", string(jsonValue))
@@ -376,6 +379,9 @@ func (rds RedisFeed) OddsChange(odds models.OddsChange) (int, error) {
 
 	totalMarketsKey := fmt.Sprintf("%s:total-markets:%d", NameSpace, odds.MatchID)
 	utils.SetRedisKey(rds.RedisClient, totalMarketsKey, fmt.Sprintf("%d", len(uniqueTotalMarkets)))
+
+	sportsKey := fmt.Sprintf("sport-id:%d", odds.MatchID)
+	utils.SetRedisKey(rds.RedisClient, sportsKey, fmt.Sprintf("%d", odds.SportID))
 
 	ttl := time.Now().UnixMilli() - odds.BetradarTimestamp
 
@@ -598,6 +604,10 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 	// namespace:table:match-matchID:market-marketID:specifierKey
 	redisMarketKey := fmt.Sprintf("%s:market-%d:%s", keyName, marketID, specifierKey)
 
+	sportsKey := fmt.Sprintf("sport-id:%d", matchID)
+	sportIDStr, _ := utils.GetRedisKey(rds.RedisClient, sportsKey)
+	sportID, _ := strconv.ParseInt(sportIDStr, 10, 64)
+
 	// get existing data
 	// Read a record
 	keyExists := rds.keyExist(redisMarketKey)
@@ -614,6 +624,7 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 					if v.OutcomeID == outcomeID {
 
 						return &models.OddsDetails{
+							SportID:     sportID,
 							MatchID:     matchID,
 							MarketID:    marketID,
 							MarketName:  k.MarketName,
@@ -627,6 +638,7 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 							Event:       "match",
 							ProducerID:  producerID,
 							Probability: v.Probability,
+							EventType:   "sr",
 						}
 					}
 				}
@@ -656,6 +668,7 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 		if v.OutcomeID == outcomeID {
 
 			return &models.OddsDetails{
+				SportID:     sportID,
 				MatchID:     matchID,
 				MarketID:    marketID,
 				MarketName:  market.MarketName,
@@ -669,6 +682,7 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 				Event:       "match",
 				ProducerID:  producerID,
 				Probability: v.Probability,
+				EventType:   "sr",
 			}
 		}
 	}
@@ -1151,6 +1165,9 @@ func (rds RedisFeed) DeleteMatchOdds(matchID int64) {
 	// delete match date
 	matchDateKeys := fmt.Sprintf("match-date:%d", matchID)
 	keysPattern = append(keysPattern, matchDateKeys)
+
+	sportsKey := fmt.Sprintf("sport-id:%d", matchID)
+	keysPattern = append(keysPattern, sportsKey)
 
 	for _, key := range keysPattern {
 

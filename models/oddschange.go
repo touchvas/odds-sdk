@@ -78,6 +78,7 @@ type Market struct {
 }
 
 type OddsDetails struct {
+	SportID     int64   `json:"sport_id"`
 	MatchID     int64   `json:"match_id"`
 	MarketID    int64   `json:"market_id"`
 	MarketName  string  `json:"market_name"`
@@ -90,6 +91,7 @@ type OddsDetails struct {
 	Odds        float64 `json:"odds"`
 	Probability float64 `json:"probability"`
 	Event       string  `json:"event"`
+	EventType   string  `json:"event_type"`
 	ProducerID  int64   `json:"producer_id"`
 }
 
