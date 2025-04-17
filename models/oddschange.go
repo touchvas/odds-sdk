@@ -92,6 +92,7 @@ type OddsDetails struct {
 	Probability float64 `json:"probability"`
 	Event       string  `json:"event"`
 	EventType   string  `json:"event_type"`
+	EventPrefix string  `json:"event_prefix"`
 	ProducerID  int64   `json:"producer_id"`
 }
 

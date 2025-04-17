@@ -635,10 +635,11 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 							Active:      v.Active,
 							StatusName:  k.StatusName,
 							Odds:        v.Odds,
-							Event:       "match",
+							Event:       fmt.Sprintf("%d", matchID),
 							ProducerID:  producerID,
 							Probability: v.Probability,
-							EventType:   "sr",
+							EventType:   "match",
+							EventPrefix: "st",
 						}
 					}
 				}
@@ -679,10 +680,11 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 				Active:      v.Active,
 				StatusName:  market.StatusName,
 				Odds:        v.Odds,
-				Event:       "match",
+				Event:       fmt.Sprintf("%d", matchID),
 				ProducerID:  producerID,
 				Probability: v.Probability,
-				EventType:   "sr",
+				EventType:   "match",
+				EventPrefix: "st",
 			}
 		}
 	}
