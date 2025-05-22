@@ -123,6 +123,7 @@ func HTTPGet(remoteURL string, headers map[string]string, payload map[string]str
 
 	var fields []string
 
+	endpoint := remoteURL
 	if payload != nil {
 
 		for key, value := range payload {
@@ -131,11 +132,12 @@ func HTTPGet(remoteURL string, headers map[string]string, payload map[string]str
 
 			fields = append(fields, val)
 		}
+
+		params := strings.Join(fields, "&")
+
+		endpoint = fmt.Sprintf("%s?%s", remoteURL, params)
+
 	}
-
-	params := strings.Join(fields, "&")
-
-	endpoint := fmt.Sprintf("%s?%s", remoteURL, params)
 
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
@@ -185,6 +187,8 @@ func HTTPGetWithContext(ctx context.Context, remoteURL string, headers map[strin
 
 	var fields []string
 
+	endpoint := remoteURL
+
 	if payload != nil {
 
 		for key, value := range payload {
@@ -193,11 +197,12 @@ func HTTPGetWithContext(ctx context.Context, remoteURL string, headers map[strin
 
 			fields = append(fields, val)
 		}
+
+		params := strings.Join(fields, "&")
+
+		endpoint = fmt.Sprintf("%s?%s", remoteURL, params)
+
 	}
-
-	params := strings.Join(fields, "&")
-
-	endpoint := fmt.Sprintf("%s?%s", remoteURL, params)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {

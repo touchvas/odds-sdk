@@ -46,7 +46,7 @@ func GetFeedsInstance() *RedisFeed {
 }
 
 // OddsChange Update new odds change message
-func (rds RedisFeed) OddsChange(odds models.OddsChange) (int, error) {
+func (rds *RedisFeed) OddsChange(odds models.OddsChange) (int, error) {
 
 	DebugMatchID, _ := strconv.ParseInt(os.Getenv("DEBUG_MATCH_ID"), 10, 64)
 
@@ -404,7 +404,7 @@ func (rds RedisFeed) OddsChange(odds models.OddsChange) (int, error) {
 
 // BetStop process bet stop message, this message suspends all the markets
 // the markets will be openned up again by subsequent odds change message
-func (rds RedisFeed) BetStop(producerID, matchID, status int64, statusName string, betradarTimeStamp, publishTimestamp, publisherProcessingTime, networkLatency int64) error {
+func (rds *RedisFeed) BetStop(producerID, matchID, status int64, statusName string, betradarTimeStamp, publishTimestamp, publisherProcessingTime, networkLatency int64) error {
 
 	arrival := time.Now().UnixMilli()
 
@@ -490,7 +490,7 @@ func (rds RedisFeed) BetStop(producerID, matchID, status int64, statusName strin
 }
 
 // GetAllMarkets gets all markets with odds for a particular matchID
-func (rds RedisFeed) GetAllMarkets(producerID, matchID int64) []models.Market {
+func (rds *RedisFeed) GetAllMarkets(producerID, matchID int64) []models.Market {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -525,7 +525,7 @@ func (rds RedisFeed) GetAllMarkets(producerID, matchID int64) []models.Market {
 }
 
 // GetMarket gets market with odds for a particular matchID and marketID
-func (rds RedisFeed) GetMarket(producerID, matchID, marketID int64, specifier string) *models.Market {
+func (rds *RedisFeed) GetMarket(producerID, matchID, marketID int64, specifier string) *models.Market {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -579,7 +579,7 @@ func (rds RedisFeed) GetMarket(producerID, matchID, marketID int64, specifier st
 }
 
 // GetOdds gets odds from quadruplets matchID, marketID , specifier and outcomeID
-func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID string) *models.OddsDetails {
+func (rds *RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID string) *models.OddsDetails {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -693,7 +693,7 @@ func (rds RedisFeed) GetOdds(matchID, marketID int64, specifier, outcomeID strin
 }
 
 // GetAllMarketsOrderByList gets all markets with odds for a particular matchID order by the supplied list of markets
-func (rds RedisFeed) GetAllMarketsOrderByList(producerID, matchID int64, marketOderList []models.MarketOrderList) []models.Market {
+func (rds *RedisFeed) GetAllMarketsOrderByList(producerID, matchID int64, marketOderList []models.MarketOrderList) []models.Market {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -777,7 +777,7 @@ func (rds RedisFeed) GetAllMarketsOrderByList(producerID, matchID int64, marketO
 }
 
 // GetSpecifiedMarkets gets the specified markets with odds for a particular matchID order by the supplied list of markets
-func (rds RedisFeed) GetSpecifiedMarkets(producerID, matchID int64, marketList []models.MarketOrderList) []models.Market {
+func (rds *RedisFeed) GetSpecifiedMarkets(producerID, matchID int64, marketList []models.MarketOrderList) []models.Market {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -851,7 +851,7 @@ func (rds RedisFeed) GetSpecifiedMarkets(producerID, matchID int64, marketList [
 }
 
 // DeleteAllMarkets deletes markets for the specified matchID
-func (rds RedisFeed) DeleteAllMarkets(producerID, matchID int64) error {
+func (rds *RedisFeed) DeleteAllMarkets(producerID, matchID int64) error {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -878,13 +878,13 @@ func (rds RedisFeed) DeleteAllMarkets(producerID, matchID int64) error {
 }
 
 // DeleteAll deletes all feeds data
-func (rds RedisFeed) DeleteAll() error {
+func (rds *RedisFeed) DeleteAll() error {
 
 	return utils.DeleteKeysByPattern(rds.RedisClient, fmt.Sprintf("%s:*", NameSpace))
 
 }
 
-func (rds RedisFeed) SetProducerID(matchID, producerID int64) error {
+func (rds *RedisFeed) SetProducerID(matchID, producerID int64) error {
 
 	redisKey := fmt.Sprintf(constants.ProducerTemplate, matchID)
 	return utils.SetRedisKey(rds.RedisClient, redisKey, fmt.Sprintf("%d", producerID))
@@ -892,7 +892,7 @@ func (rds RedisFeed) SetProducerID(matchID, producerID int64) error {
 }
 
 // gets the active producer for a particular match
-func (rds RedisFeed) GetProducerID(matchID int64) (id, status int64) {
+func (rds *RedisFeed) GetProducerID(matchID int64) (id, status int64) {
 
 	redisKey := fmt.Sprintf(constants.ProducerTemplate, matchID)
 	producer, _ := utils.GetRedisKey(rds.RedisClient, redisKey)
@@ -901,7 +901,7 @@ func (rds RedisFeed) GetProducerID(matchID int64) (id, status int64) {
 
 }
 
-func (rds RedisFeed) keyExist(key string) bool {
+func (rds *RedisFeed) keyExist(key string) bool {
 
 	check, err := rds.RedisClient.Exists(key).Result()
 	if err != nil {
@@ -913,7 +913,7 @@ func (rds RedisFeed) keyExist(key string) bool {
 	return check > 0
 }
 
-func (rds RedisFeed) getAllKeysByPattern(keyPattern string) []string {
+func (rds *RedisFeed) getAllKeysByPattern(keyPattern string) []string {
 
 	var keys []string
 	iter := rds.RedisClient.Scan(0, keyPattern, 0).Iterator()
@@ -925,7 +925,7 @@ func (rds RedisFeed) getAllKeysByPattern(keyPattern string) []string {
 	return keys
 }
 
-func (rds RedisFeed) getAllMarketsOrderByPriority(producerID, matchID int64, marketOderList []models.MarketOrderList) []models.Market {
+func (rds *RedisFeed) getAllMarketsOrderByPriority(producerID, matchID int64, marketOderList []models.MarketOrderList) []models.Market {
 
 	DebugMatchID, _ := strconv.ParseInt(os.Getenv("DEBUG_MATCH_ID"), 10, 64)
 
@@ -1052,7 +1052,7 @@ func (rds RedisFeed) getAllMarketsOrderByPriority(producerID, matchID int64, mar
 	return orderedMarkets
 }
 
-func (rds RedisFeed) orderByPriority(markets []models.Market, marketOderList []models.MarketOrderList) []models.Market {
+func (rds *RedisFeed) orderByPriority(markets []models.Market, marketOderList []models.MarketOrderList) []models.Market {
 
 	var orderedMarkets, marketsInTheOrderedList, otherMarkets []models.Market
 
@@ -1115,7 +1115,7 @@ func (rds RedisFeed) orderByPriority(markets []models.Market, marketOderList []m
 }
 
 // DeleteMatchOdds Delete all odds and caches for the supplied match
-func (rds RedisFeed) DeleteMatchOdds(matchID int64) {
+func (rds *RedisFeed) DeleteMatchOdds(matchID int64) {
 
 	var keysPattern []string
 
@@ -1187,7 +1187,7 @@ func (rds RedisFeed) DeleteMatchOdds(matchID int64) {
 }
 
 // GetDefaultMarketID gets the default marketID for a particular sportID
-func (rds RedisFeed) GetDefaultMarketID(matchID, sportID int64) int64 {
+func (rds *RedisFeed) GetDefaultMarketID(matchID, sportID int64) int64 {
 
 	defaultMarketKey := fmt.Sprintf("%s:default-market-id:%d", NameSpace, matchID)
 	redisValue, _ := utils.GetRedisKey(rds.RedisClient, defaultMarketKey)
@@ -1205,7 +1205,7 @@ func (rds RedisFeed) GetDefaultMarketID(matchID, sportID int64) int64 {
 	return 186
 }
 
-func (rds RedisFeed) GetProducerStatus(producerID int64) int64 {
+func (rds *RedisFeed) GetProducerStatus(producerID int64) int64 {
 
 	redisKey := fmt.Sprintf("producer:status:%d", producerID)
 	dt, _ := utils.GetRedisKey(rds.RedisClient, redisKey)
@@ -1215,7 +1215,7 @@ func (rds RedisFeed) GetProducerStatus(producerID int64) int64 {
 }
 
 // GetFixtureStatus gets fixture status for the supplied matchID
-func (rds RedisFeed) GetFixtureStatus(matchID int64) models.FixtureStatus {
+func (rds *RedisFeed) GetFixtureStatus(matchID int64) models.FixtureStatus {
 
 	market := new(models.FixtureStatus)
 
@@ -1249,7 +1249,7 @@ func (rds RedisFeed) GetFixtureStatus(matchID int64) models.FixtureStatus {
 }
 
 // SetFixtureStatus sets fixture status for the supplied matchID
-func (rds RedisFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) error {
+func (rds *RedisFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) error {
 
 	redisKey := fmt.Sprintf("fixture-stats:%d", matchID)
 
@@ -1265,13 +1265,13 @@ func (rds RedisFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) er
 
 }
 
-func (rds RedisFeed) RequestOdds(matchID int64) error {
+func (rds *RedisFeed) RequestOdds(matchID int64) error {
 
 	return utils.PublishToNats(rds.NatsClient, "odds_recovery", map[string]interface{}{"match_id": matchID})
 
 }
 
-func (rds RedisFeed) RequestMatchTime(matchID int64) error {
+func (rds *RedisFeed) RequestMatchTime(matchID int64) error {
 
 	return utils.PublishToNats(rds.NatsClient, "match_timeline", map[string]interface{}{"match_id": matchID})
 
