@@ -12,22 +12,22 @@ import (
 // RedisClient gets redis client
 func RedisClient() *redis.Client {
 
-	host := os.Getenv("ODDS_REDIS_HOST")
+	host := os.Getenv("FEEDS_REDIS_HOST")
 	if len(host) == 0 {
 
 		panic("missing odds redis host")
 	}
 
-	portNumber, _ := strconv.ParseInt(os.Getenv("ODDS_REDIS_PORT"), 10, 64)
+	portNumber, _ := strconv.ParseInt(os.Getenv("FEEDS_REDIS_PORT"), 10, 64)
 
 	if portNumber == 0 {
 
 		portNumber = 6379
 	}
 
-	dbNumber, _ := strconv.ParseInt(os.Getenv("ODDS_REDIS_DATABASE_NUMBER"), 10, 64)
+	dbNumber, _ := strconv.ParseInt(os.Getenv("FEEDS_REDIS_DATABASE_NUMBER"), 10, 64)
 
-	auth := os.Getenv("ODDS_REDIS_PASSWORD")
+	auth := os.Getenv("FEEDS_REDIS_PASSWORD")
 
 	uri := fmt.Sprintf("redis://%s:%d", host, portNumber)
 	uri = fmt.Sprintf("%s:%d", host, portNumber)

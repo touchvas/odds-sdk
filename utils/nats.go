@@ -10,7 +10,7 @@ import (
 
 func PublishToNats(nc *nats.Conn, natsTopic string, payload interface{}) error {
 
-	servicePrefix := os.Getenv("ODDS_SERVICE_QUEUE_PREFIX")
+	servicePrefix := os.Getenv("FEEDS_SERVICE_QUEUE_PREFIX")
 	payloadByte, _ := json.Marshal(payload)
 	queueName := fmt.Sprintf("%s.%s", servicePrefix, natsTopic)
 
@@ -26,12 +26,12 @@ func PublishToNats(nc *nats.Conn, natsTopic string, payload interface{}) error {
 // GetNatsConnection gets nats connection connection
 func GetNatsConnection() *nats.Conn {
 
-	natsURI := os.Getenv("ODDS_SERVICE_NATS_URI")
+	natsURI := os.Getenv("FEEDS_SERVICE_NATS_URI")
 	log.Printf(" connecting to odds service nats %s ", natsURI)
 
 	// if a CA is configured, update nats connect config with the path
 	var natConnectOptions []nats.Option
-	natsCA := os.Getenv("ODDS_SERVICE_NATS_CA")
+	natsCA := os.Getenv("FEEDS_SERVICE_NATS_CA")
 	if _, err := os.Stat(natsCA); err == nil {
 
 		natConnectOptions = append(natConnectOptions, nats.RootCAs(natsCA))
