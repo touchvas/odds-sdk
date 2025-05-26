@@ -18,7 +18,7 @@ Setup the below environment variables for this library to work
 ### library installation
 
 ```shell
-go get -u github.com/touchvas/odds-sdk
+go get -u github.com/touchvas/odds-sdk/v2
 ```
 
 ### library usage
@@ -29,7 +29,7 @@ You have to get instance of redisfeed with
 package testfeed
 
 import (
-	feeds "github.com/touchvas/odds-sdk/feeds"
+	feeds "github.com/touchvas/odds-sdk/v2/feeds"
 )
 
 feeds := feeds.GetFeedsInstance()

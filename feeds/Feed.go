@@ -1,6 +1,6 @@
 package feeds
 
-import "github.com/touchvas/odds-sdk/models"
+import "github.com/touchvas/odds-sdk/v2/models"
 
 type Feed interface {
 	// OddsChange Update new odds change message

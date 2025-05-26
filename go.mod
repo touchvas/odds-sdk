@@ -1,4 +1,4 @@
-module github.com/touchvas/odds-sdk
+module github.com/touchvas/odds-sdk/v2
 
 go 1.23.0
 
