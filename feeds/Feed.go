@@ -6,7 +6,7 @@ type Feed interface {
 	// OddsChange Updates new odds change message
 	OddsChange(odds models.OddsChange) (int, error)
 
-	// BetStop Update new bet stop message
+	// BetStop Updates new bet stop message
 	BetStop(producerID, matchID, status int64, statusName string, betradarTimeStamp, publishTimestamp, publisherProcessingTime, networkLatency int64) error
 
 	// GetAllMarkets Gets all markets for a specified matchID
