@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-type Feed struct {
+type MysqlFeed struct {
 	feeds.Feed
 	DB          *sql.DB
 	NatsClient  *nats.Conn
@@ -63,15 +63,15 @@ type marketTmp struct {
 	Probability float64 `json:"probability"  validate:"required"`
 }
 
-var instance *Feed
+var instance *MysqlFeed
 var once sync.Once
 
-func GetFeedsInstance() *Feed {
+func GetFeedsInstance() *MysqlFeed {
 
 	once.Do(func() {
 
 		fmt.Println("Creating Redis Feeds instance")
-		instance = &Feed{
+		instance = &MysqlFeed{
 			DB:          DbInstance(),
 			NatsClient:  utils.GetNatsConnection(),
 			RedisClient: utils.RedisClient(),
@@ -83,7 +83,7 @@ func GetFeedsInstance() *Feed {
 }
 
 // OddsChange Update new odds change message
-func (rds *Feed) OddsChange(odds models.OddsChange) (int, error) {
+func (rds *MysqlFeed) OddsChange(odds models.OddsChange) (int, error) {
 
 	DebugMatchID, _ := strconv.ParseInt(os.Getenv("DEBUG_MATCH_ID"), 10, 64)
 
@@ -232,7 +232,7 @@ func (rds *Feed) OddsChange(odds models.OddsChange) (int, error) {
 
 }
 
-func (rds *Feed) SetProducerID(matchID, producerID int64) error {
+func (rds *MysqlFeed) SetProducerID(matchID, producerID int64) error {
 
 	dbUtils := goutils.Db{DB: rds.DB, Context: context.TODO()}
 	updates := map[string]interface{}{
@@ -250,7 +250,7 @@ func (rds *Feed) SetProducerID(matchID, producerID int64) error {
 }
 
 // GetProducerID gets the active producer for a particular match
-func (rds *Feed) GetProducerID(matchID int64) (id, status int64) {
+func (rds *MysqlFeed) GetProducerID(matchID int64) (id, status int64) {
 
 	dbUtils := goutils.Db{DB: rds.DB, Context: context.TODO()}
 	query := "SELECT m.producer_id, p.producer_status " +
@@ -276,7 +276,7 @@ func (rds *Feed) GetProducerID(matchID int64) (id, status int64) {
 
 // BetStop process bet stop message, this message suspends all the markets
 // the markets will be openned up again by subsequent odds change message
-func (rds *Feed) BetStop(producerID, matchID, status int64, statusName string, betradarTimeStamp, publishTimestamp, publisherProcessingTime, networkLatency int64) error {
+func (rds *MysqlFeed) BetStop(producerID, matchID, status int64, statusName string, betradarTimeStamp, publishTimestamp, publisherProcessingTime, networkLatency int64) error {
 
 	arrival := time.Now().UnixMilli()
 
@@ -335,7 +335,7 @@ func (rds *Feed) BetStop(producerID, matchID, status int64, statusName string, b
 }
 
 // GetAllMarkets gets all markets with odds for a particular matchID
-func (rds *Feed) GetAllMarkets(producerID, matchID int64) []models.Market {
+func (rds *MysqlFeed) GetAllMarkets(producerID, matchID int64) []models.Market {
 
 	dbUtils := goutils.Db{DB: rds.DB, Context: context.TODO()}
 
@@ -461,7 +461,7 @@ func (rds *Feed) GetAllMarkets(producerID, matchID int64) []models.Market {
 }
 
 // GetMarket gets market with odds for a particular matchID and marketID
-func (rds *Feed) GetMarket(producerID, matchID, marketID int64, specifier string) *models.Market {
+func (rds *MysqlFeed) GetMarket(producerID, matchID, marketID int64, specifier string) *models.Market {
 
 	dbUtils := goutils.Db{DB: rds.DB, Context: context.TODO()}
 
@@ -533,7 +533,7 @@ func (rds *Feed) GetMarket(producerID, matchID, marketID int64, specifier string
 }
 
 // GetOdds gets odds from quadruplets matchID, marketID , specifier and outcomeID
-func (rds *Feed) GetOdds(matchID, marketID int64, specifier, outcomeID string) *models.OddsDetails {
+func (rds *MysqlFeed) GetOdds(matchID, marketID int64, specifier, outcomeID string) *models.OddsDetails {
 
 	producerID, _ := rds.GetProducerID(matchID)
 
@@ -592,14 +592,14 @@ func (rds *Feed) GetOdds(matchID, marketID int64, specifier, outcomeID string) *
 	return &oddT
 }
 
-func (rds *Feed) RequestOdds(matchID int64) error {
+func (rds *MysqlFeed) RequestOdds(matchID int64) error {
 
 	return utils.PublishToNats(rds.NatsClient, "odds_recovery", map[string]interface{}{"match_id": matchID})
 
 }
 
 // GetAllMarketsOrderByList gets all markets with odds for a particular matchID order by the supplied list of markets
-func (rds *Feed) GetAllMarketsOrderByList(producerID, matchID int64, marketOderList []models.MarketOrderList) []models.Market {
+func (rds *MysqlFeed) GetAllMarketsOrderByList(producerID, matchID int64, marketOderList []models.MarketOrderList) []models.Market {
 
 	markets := rds.GetAllMarkets(producerID, matchID)
 
@@ -657,7 +657,7 @@ func (rds *Feed) GetAllMarketsOrderByList(producerID, matchID int64, marketOderL
 }
 
 // GetSpecifiedMarkets gets the specified markets with odds for a particular matchID order by the supplied list of markets
-func (rds *Feed) GetSpecifiedMarkets(producerID, matchID int64, marketList []models.MarketOrderList) []models.Market {
+func (rds *MysqlFeed) GetSpecifiedMarkets(producerID, matchID int64, marketList []models.MarketOrderList) []models.Market {
 
 	markets := rds.GetAllMarkets(producerID, matchID)
 
@@ -705,7 +705,7 @@ func (rds *Feed) GetSpecifiedMarkets(producerID, matchID int64, marketList []mod
 }
 
 // DeleteAllMarkets deletes markets for the specified matchID
-func (rds *Feed) DeleteAllMarkets(producerID, matchID int64) error {
+func (rds *MysqlFeed) DeleteAllMarkets(producerID, matchID int64) error {
 
 	dbUtils := goutils.Db{DB: rds.DB, Context: context.TODO()}
 
@@ -739,7 +739,7 @@ func (rds *Feed) DeleteAllMarkets(producerID, matchID int64) error {
 }
 
 // DeleteAll deletes all feeds data
-func (rds *Feed) DeleteAll() error {
+func (rds *MysqlFeed) DeleteAll() error {
 
 	dbUtils := goutils.Db{DB: rds.DB, Context: context.TODO()}
 
@@ -762,7 +762,7 @@ func (rds *Feed) DeleteAll() error {
 }
 
 // DeleteMatchOdds Delete all odds and caches for the supplied match
-func (rds *Feed) DeleteMatchOdds(matchID int64) {
+func (rds *MysqlFeed) DeleteMatchOdds(matchID int64) {
 
 	var keysPattern []string
 
@@ -798,7 +798,7 @@ func (rds *Feed) DeleteMatchOdds(matchID int64) {
 }
 
 // GetDefaultMarketID gets the default marketID for a particular sportID
-func (rds *Feed) GetDefaultMarketID(matchID, sportID int64) int64 {
+func (rds *MysqlFeed) GetDefaultMarketID(matchID, sportID int64) int64 {
 
 	dbUtils := goutils.Db{DB: rds.DB, Context: context.TODO()}
 	dbUtils.SetQuery("SELECT default_market FROM match_odds_details WHERE match_id = ? ")
@@ -827,7 +827,7 @@ func (rds *Feed) GetDefaultMarketID(matchID, sportID int64) int64 {
 	return 186
 }
 
-func (rds *Feed) GetProducerStatus(producerID int64) int64 {
+func (rds *MysqlFeed) GetProducerStatus(producerID int64) int64 {
 
 	dbUtils := goutils.Db{DB: rds.DB, Context: context.TODO()}
 	query := "SELECT producer_status " +
@@ -851,7 +851,7 @@ func (rds *Feed) GetProducerStatus(producerID int64) int64 {
 }
 
 // GetFixtureStatus gets fixture status for the supplied matchID
-func (rds *Feed) GetFixtureStatus(matchID int64) models.FixtureStatus {
+func (rds *MysqlFeed) GetFixtureStatus(matchID int64) models.FixtureStatus {
 
 	market := new(models.FixtureStatus)
 
@@ -885,7 +885,7 @@ func (rds *Feed) GetFixtureStatus(matchID int64) models.FixtureStatus {
 }
 
 // SetFixtureStatus sets fixture status for the supplied matchID
-func (rds *Feed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) error {
+func (rds *MysqlFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) error {
 
 	redisKey := fmt.Sprintf("fixture-stats:%d", matchID)
 
@@ -901,7 +901,7 @@ func (rds *Feed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) error 
 
 }
 
-func (rds *Feed) RequestMatchTime(matchID int64) error {
+func (rds *MysqlFeed) RequestMatchTime(matchID int64) error {
 
 	return utils.PublishToNats(rds.NatsClient, "match_timeline", map[string]interface{}{"match_id": matchID})
 
