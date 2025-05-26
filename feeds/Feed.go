@@ -12,10 +12,10 @@ type Feed interface {
 	// GetAllMarkets Gets all markets for a specified matchID
 	GetAllMarkets(producerID, matchID int64) []models.Market
 
-	// GetMarket Get only markets for the supplied matchID and specifier
+	// GetMarket Gets only markets for the supplied matchID and specifier
 	GetMarket(producerID, matchID, marketID int64, specifier string) *models.Market
 
-	// GetOdds Get Odds for the specified outcome specified by matchID, marketID, specifier, outcomeID
+	// GetOdds Gets Odds for the specified outcome specified by matchID, marketID, specifier, outcomeID
 	GetOdds(matchID, marketID int64, specifier, outcomeID string) *models.OddsDetails
 
 	// GetAllMarketsOrderByList Gets all markets for a specified matchID order by the supplied ordered list
@@ -24,7 +24,7 @@ type Feed interface {
 	// GetSpecifiedMarkets Gets all markets for a specified matchID only retrieve markets in the supplied list
 	GetSpecifiedMarkets(producerID, matchID int64, marketList []models.MarketOrderList) []models.Market
 
-	// DeleteAllMarkets Delete all odds and caches for the supplied match
+	// DeleteAllMarkets Deletes all odds and caches for the supplied match
 	DeleteAllMarkets(producerID, matchID int64) error
 
 	// DeleteAll Deletes all odds
