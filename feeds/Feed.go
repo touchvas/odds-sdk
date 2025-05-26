@@ -3,7 +3,7 @@ package feeds
 import "github.com/touchvas/odds-sdk/v2/models"
 
 type Feed interface {
-	// OddsChange Update new odds change message
+	// OddsChange Updates new odds change message
 	OddsChange(odds models.OddsChange) (int, error)
 
 	// BetStop Update new bet stop message
