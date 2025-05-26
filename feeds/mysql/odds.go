@@ -144,7 +144,8 @@ func (rds *Feed) OddsChange(odds models.OddsChange) (int, error) {
 		if len(m.Outcomes) == 0 {
 
 			updates := map[string]interface{}{
-				"status": m.Status,
+				"status":      m.Status,
+				"status_name": m.StatusName,
 			}
 
 			condition := map[string]interface{}{
@@ -183,6 +184,7 @@ func (rds *Feed) OddsChange(odds models.OddsChange) (int, error) {
 				"market_name":  m.MarketName,
 				"specifier":    m.Specifier,
 				"status":       m.Status,
+				"status_name":  m.StatusName,
 				"outcome_id":   o.OutcomeID,
 				"outcome_name": o.OutcomeName,
 				"odds":         o.Odds,
@@ -190,7 +192,7 @@ func (rds *Feed) OddsChange(odds models.OddsChange) (int, error) {
 				"probability":  o.Probability,
 			}
 
-			_, err := dbUtils.UpsertWithContext(table, inserts, []string{"status", "odds", "probability", "active"})
+			_, err := dbUtils.UpsertWithContext(table, inserts, []string{"status", "status_name", "odds", "probability", "active"})
 			if err != nil {
 
 				log.Printf("error updating odds %s ", err.Error())
@@ -288,9 +290,9 @@ func (rds *Feed) BetStop(producerID, matchID, status int64, statusName string, b
 
 	}
 
-	query := fmt.Sprintf("UPDATE %s SET status = ? WHERE match_id = ? ", table)
+	query := fmt.Sprintf("UPDATE %s SET status = ?, status_name = ?  WHERE match_id = ? ", table)
 	dbUtils.SetQuery(query)
-	dbUtils.SetParams(status, matchID)
+	dbUtils.SetParams(status, statusName, matchID)
 
 	_, err := dbUtils.UpdateQueryWithContext()
 	if err != nil {
