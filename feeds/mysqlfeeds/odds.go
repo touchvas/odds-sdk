@@ -190,6 +190,7 @@ func (rds *MysqlFeed) OddsChange(odds models.OddsChange) (int, error) {
 				"odds":         o.Odds,
 				"active":       o.Active,
 				"probability":  o.Probability,
+				"producer_id":  odds.ProducerID,
 			}
 
 			_, err := dbUtils.UpsertWithContext(table, inserts, []string{"status", "status_name", "odds", "probability", "active"})
