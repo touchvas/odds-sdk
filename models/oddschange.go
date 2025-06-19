@@ -23,6 +23,9 @@ type OddsChange struct {
 }
 
 type FixtureStatus struct {
+	EventID          int64  `json:"event_id"`
+	EventPrefix      string `json:"event_prefix"`
+	SportID          int64  `json:"sport_id"`
 	Status           int64  `json:"status"`
 	StatusName       string `json:"status_name"`
 	HomeScore        string `json:"home_score"`

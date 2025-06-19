@@ -137,28 +137,47 @@ func (rds *MysqlFeed) OddsChange(odds models.OddsChange) (int, error) {
 
 	}
 
+	maxWorkers := int64(10)
+	var wg sync.WaitGroup
+	x := int64(0)
+
 	// loop through all the received markets
 	for _, m := range odds.Markets {
+
+		x++
 
 		// only update market status if there are no outcomes
 		if len(m.Outcomes) == 0 {
 
-			updates := map[string]interface{}{
-				"status":      m.Status,
-				"status_name": m.StatusName,
-			}
+			wg.Add(1)
+			go func(mm models.Market) {
 
-			condition := map[string]interface{}{
-				"sport_id":  odds.SportID,
-				"match_id":  odds.MatchID,
-				"market_id": m.MarketID,
-				"specifier": m.Specifier,
-			}
+				defer wg.Done()
 
-			_, err := dbUtils.UpdateWithContext(table, condition, updates)
-			if err != nil {
+				updates := map[string]interface{}{
+					"status":      mm.Status,
+					"status_name": mm.StatusName,
+				}
 
-				log.Printf("error updating odds %s ", err.Error())
+				condition := map[string]interface{}{
+					"sport_id":  odds.SportID,
+					"match_id":  odds.MatchID,
+					"market_id": mm.MarketID,
+					"specifier": mm.Specifier,
+				}
+
+				_, err := dbUtils.UpdateWithContext(table, condition, updates)
+				if err != nil {
+
+					log.Printf("error updating odds %s ", err.Error())
+				}
+
+			}(m)
+
+			if x > 0 && x%maxWorkers == 0 {
+
+				wg.Wait()
+
 			}
 
 			continue
@@ -173,6 +192,44 @@ func (rds *MysqlFeed) OddsChange(odds models.OddsChange) (int, error) {
 			}
 
 		}
+
+		// update odds
+		for _, o := range m.Outcomes {
+
+			inserts := map[string]interface{}{
+				"sport_id":     odds.SportID,
+				"match_id":     odds.MatchID,
+				"market_id":    m.MarketID,
+				"market_name":  m.MarketName,
+				"specifier":    m.Specifier,
+				"status":       m.Status,
+				"status_name":  m.StatusName,
+				"outcome_id":   o.OutcomeID,
+				"outcome_name": o.OutcomeName,
+				"odds":         o.Odds,
+				"active":       o.Active,
+				"probability":  o.Probability,
+				"producer_id":  odds.ProducerID,
+			}
+
+			_, err := dbUtils.UpsertWithContext(table, inserts, []string{"status", "status_name", "odds", "probability", "active"})
+			if err != nil {
+
+				log.Printf("error updating odds %s ", err.Error())
+			}
+
+		}
+
+		if m.Status == 0 || m.Status == 5 {
+
+			uniqueTotalMarkets[m.MarketID] = 1
+		}
+
+	}
+
+	for _, m := range odds.Markets {
+
+		x++
 
 		// update odds
 		for _, o := range m.Outcomes {
