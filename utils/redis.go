@@ -55,7 +55,7 @@ func RedisClient() *redis.Client {
 func GetRedisKey(conn *redis.Client, key string) (string, error) {
 
 	var data string
-	data, err := conn.Get(key).Result()
+	data, err := conn.Get(getKey(key)).Result()
 	if err != nil {
 
 		//return data, fmt.Errorf("error getting key %s: %v", key, err)
@@ -69,7 +69,7 @@ func GetRedisKey(conn *redis.Client, key string) (string, error) {
 // SetRedisKeyWithExpiry saves key to redis with TTL value
 func SetRedisKeyWithExpiry(conn *redis.Client, key string, value string, seconds int) error {
 
-	_, err := conn.Set(key, value, time.Second*time.Duration(seconds)).Result()
+	_, err := conn.Set(getKey(key), value, time.Second*time.Duration(seconds)).Result()
 	if err != nil {
 
 		v := string(value)
@@ -89,7 +89,7 @@ func SetRedisKeyWithExpiry(conn *redis.Client, key string, value string, seconds
 // SetRedisKey saves key to redis without expiry
 func SetRedisKey(conn *redis.Client, key string, value string) error {
 
-	_, err := conn.Set(key, value, 0).Result()
+	_, err := conn.Set(getKey(key), value, 0).Result()
 	if err != nil {
 
 		v := string(value)
@@ -109,7 +109,7 @@ func SetRedisKey(conn *redis.Client, key string, value string) error {
 // DeleteRedisKey deletes a saved redis keys
 func DeleteRedisKey(conn *redis.Client, key string) error {
 
-	_, err := conn.Del(key).Result()
+	_, err := conn.Del(getKey(key)).Result()
 	if err != nil {
 
 		log.Printf("error deleting redisKey %s error %s", key, err.Error())
@@ -122,7 +122,7 @@ func DeleteRedisKey(conn *redis.Client, key string) error {
 // DeleteKeysByPattern deletes a set of keys matching the supplied pattern
 func DeleteKeysByPattern(conn *redis.Client, keyPattern string) error {
 
-	iter := conn.Scan(0, keyPattern, 0).Iterator()
+	iter := conn.Scan(0, getKey(keyPattern), 0).Iterator()
 	for iter.Next() {
 
 		DeleteRedisKey(conn, iter.Val())
@@ -139,7 +139,7 @@ func DeleteKeysByPattern(conn *redis.Client, keyPattern string) error {
 
 func RedisKeyExists(conn *redis.Client, key string) (bool, error) {
 
-	check, err := conn.Exists(key).Result()
+	check, err := conn.Exists(getKey(key)).Result()
 	if err != nil {
 
 		log.Printf("error saving redisKey %s error %s", key, err.Error())
@@ -147,4 +147,18 @@ func RedisKeyExists(conn *redis.Client, key string) (bool, error) {
 	}
 
 	return check > 0, nil
+}
+
+func getKey(key string) string {
+
+	if len(os.Getenv("FEEDS_REDIS_KEY_PREFIX")) > 0 {
+
+		return fmt.Sprintf("%s:%s", os.Getenv("FEEDS_REDIS_KEY_PREFIX"), key) // do this to prevent having very long keys
+		// return goutils.MD5S(fmt.Sprintf("%s:%s", os.Getenv("REDIS_KEY_PREFIX"), key)) // do this to prevent having very long keys
+
+	}
+
+	return key
+	// return goutils.MD5S(key) // do this to prevent having very long keys
+
 }
