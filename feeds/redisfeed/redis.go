@@ -903,26 +903,19 @@ func (rds *RedisFeed) GetProducerID(matchID int64) (id, status int64) {
 
 func (rds *RedisFeed) keyExist(key string) bool {
 
-	check, err := rds.RedisClient.Exists(key).Result()
+	check, err := utils.RedisKeyExists(rds.RedisClient, key)
 	if err != nil {
 
 		log.Printf("error saving redisKey %s error %s", key, err.Error())
 		return false
 	}
 
-	return check > 0
+	return check
 }
 
 func (rds *RedisFeed) getAllKeysByPattern(keyPattern string) []string {
 
-	var keys []string
-	iter := rds.RedisClient.Scan(0, keyPattern, 0).Iterator()
-	for iter.Next() {
-
-		keys = append(keys, iter.Val())
-	}
-
-	return keys
+	return utils.GetAllKeysByPattern(rds.RedisClient, keyPattern)
 }
 
 func (rds *RedisFeed) getAllMarketsOrderByPriority(producerID, matchID int64, marketOderList []models.MarketOrderList) []models.Market {
@@ -1267,11 +1260,23 @@ func (rds *RedisFeed) SetFixtureStatus(matchID int64, fx models.FixtureStatus) e
 
 func (rds *RedisFeed) RequestOdds(matchID int64) error {
 
+	if os.Getenv("FEEDS_SOURCE") == "geniussports" {
+
+		return fmt.Errorf("odds recovery not supported")
+
+	}
+
 	return utils.PublishToNats(rds.NatsClient, "odds_recovery", map[string]interface{}{"match_id": matchID})
 
 }
 
 func (rds *RedisFeed) RequestMatchTime(matchID int64) error {
+
+	if os.Getenv("FEEDS_SOURCE") == "geniussports" {
+
+		return fmt.Errorf("match timeline not supported")
+
+	}
 
 	return utils.PublishToNats(rds.NatsClient, "match_timeline", map[string]interface{}{"match_id": matchID})
 

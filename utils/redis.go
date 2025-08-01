@@ -162,3 +162,15 @@ func getKey(key string) string {
 	// return goutils.MD5S(key) // do this to prevent having very long keys
 
 }
+
+func GetAllKeysByPattern(conn *redis.Client, keyPattern string) []string {
+
+	var keys []string
+	iter := conn.Scan(0, getKey(keyPattern), 0).Iterator()
+	for iter.Next() {
+
+		keys = append(keys, iter.Val())
+	}
+
+	return keys
+}
