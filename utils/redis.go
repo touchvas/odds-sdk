@@ -72,14 +72,14 @@ func SetRedisKeyWithExpiry(conn *redis.Client, key string, value string, seconds
 	_, err := conn.Set(key, value, time.Second*time.Duration(seconds)).Result()
 	if err != nil {
 
-		v := string(value)
+		v := value
 
 		if len(v) > 15 {
 
 			v = v[0:12] + "..."
 		}
 
-		log.Printf("error saving redisKey %s error %s", key, err.Error())
+		log.Printf("error saving redisKey %s | %s", key, err.Error())
 		return fmt.Errorf("error setting key %s to %s: %v", key, v, err)
 	}
 
@@ -99,7 +99,7 @@ func SetRedisKey(conn *redis.Client, key string, value string) error {
 			v = v[0:12] + "..."
 		}
 
-		log.Printf("error saving redisKey %s error %s", key, err.Error())
+		log.Printf("error saving redisKey %s | %s", key, err.Error())
 		return fmt.Errorf("error setting key %s to %s: %v", key, v, err)
 	}
 
@@ -142,7 +142,7 @@ func RedisKeyExists(conn *redis.Client, key string) (bool, error) {
 	check, err := conn.Exists(key).Result()
 	if err != nil {
 
-		log.Printf("error saving redisKey %s error %s", key, err.Error())
+		log.Printf("error checking if redisKey %s exists | %s", key, err.Error())
 		return false, err
 	}
 

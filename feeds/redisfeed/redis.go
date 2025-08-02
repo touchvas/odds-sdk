@@ -907,8 +907,9 @@ func (rds *RedisFeed) keyExist(key string) bool {
 	check, err := utils.RedisKeyExists(rds.RedisClient, key)
 	if err != nil {
 
-		log.Printf("error saving redisKey %s error %s", key, err.Error())
+		log.Printf("error checking if redisKey %s exist | %s", key, err.Error())
 		return false
+
 	}
 
 	return check
