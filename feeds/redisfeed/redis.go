@@ -507,6 +507,7 @@ func (rds *RedisFeed) GetAllMarkets(producerID, matchID int64) []models.Market {
 
 	if !keyExists {
 
+		log.Printf("key not found %s ", keyName)
 		rds.RequestOdds(matchID)
 		return nil
 	}
