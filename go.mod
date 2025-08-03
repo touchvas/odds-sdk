@@ -22,6 +22,7 @@ require (
 require (
 	github.com/go-sql-driver/mysql v1.9.2
 	github.com/nats-io/nats.go v1.41.1
+	github.com/redis/go-redis/extra/redisotel/v9 v9.11.0
 	github.com/redis/go-redis/v9 v9.11.0
 )
 
@@ -42,6 +43,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/nats-io/nkeys v0.4.10 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
+	github.com/redis/go-redis/extra/rediscmd/v9 v9.11.0 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

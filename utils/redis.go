@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 	"log"
 	"os"
@@ -46,6 +47,16 @@ func RedisClient() *redis.ClusterClient {
 	}
 
 	client := redis.NewClusterClient(&opts)
+
+	// Enable tracing instrumentation.
+	if err := redisotel.InstrumentTracing(client); err != nil {
+		panic(err)
+	}
+
+	// Enable metrics instrumentation.
+	if err := redisotel.InstrumentMetrics(client); err != nil {
+		panic(err)
+	}
 
 	return client
 }

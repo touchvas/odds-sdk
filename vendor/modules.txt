@@ -77,6 +77,12 @@ github.com/nats-io/nkeys
 # github.com/nats-io/nuid v1.0.1
 ## explicit
 github.com/nats-io/nuid
+# github.com/redis/go-redis/extra/rediscmd/v9 v9.11.0
+## explicit; go 1.19
+github.com/redis/go-redis/extra/rediscmd/v9
+# github.com/redis/go-redis/extra/redisotel/v9 v9.11.0
+## explicit; go 1.19
+github.com/redis/go-redis/extra/redisotel/v9
 # github.com/redis/go-redis/v9 v9.11.0
 ## explicit; go 1.18
 github.com/redis/go-redis/v9
@@ -122,6 +128,7 @@ go.opentelemetry.io/otel/internal/baggage
 go.opentelemetry.io/otel/internal/global
 go.opentelemetry.io/otel/propagation
 go.opentelemetry.io/otel/semconv/v1.20.0
+go.opentelemetry.io/otel/semconv/v1.24.0
 go.opentelemetry.io/otel/semconv/v1.26.0
 # go.opentelemetry.io/otel/metric v1.36.0
 ## explicit; go 1.23.0
