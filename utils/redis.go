@@ -7,7 +7,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -21,14 +20,7 @@ func RedisClient() *redis.ClusterClient {
 		panic("missing feeds redis host")
 	}
 
-	portNumber, _ := strconv.ParseInt(os.Getenv("FEEDS_REDIS_PORT"), 10, 64)
-
-	if portNumber == 0 {
-
-		portNumber = 6379
-	}
-
-	auth := os.Getenv("FEEDS_REDIS_PASSWORD")
+	auth := os.Getenv("FEEDS_REDIS_CLUSTER_PASSWORD")
 
 	opts := redis.ClusterOptions{
 		MinIdleConns: 10,
