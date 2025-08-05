@@ -20,14 +20,23 @@ func RedisClient() *redis.ClusterClient {
 		panic("missing feeds redis host")
 	}
 
-	auth := os.Getenv("FEEDS_REDIS_CLUSTER_PASSWORD")
+	auth := strings.TrimSpace(os.Getenv("FEEDS_REDIS_CLUSTER_PASSWORD"))
+	username := strings.TrimSpace(os.Getenv("FEEDS_REDIS_CLUSTER_USERNAME"))
+
+	if len(username) == 0 {
+
+		username = "default"
+	}
+
+	addr := strings.Split(host, ",")
 
 	opts := redis.ClusterOptions{
 		MinIdleConns: 10,
 		//IdleTimeout:  60 * time.Second,
 		PoolSize:    10000,
-		Addrs:       strings.Split(host, ","),
+		Addrs:       addr,
 		ReadTimeout: 3 * time.Second,
+		Username:    username,
 		// To route commands by latency or randomly, enable one of the following.
 		//RouteByLatency: true,
 		//RouteRandomly: true,
@@ -53,7 +62,7 @@ func RedisClient() *redis.ClusterClient {
 	_, err := client.Ping(context.TODO()).Result()
 	if err != nil {
 
-		log.Printf("Failed to ping redis | %s | auth %s | %s", host, auth, err.Error())
+		log.Printf("Failed to ping redis | %v | auth %s | %s", addr, auth, err.Error())
 		panic(err)
 	}
 
