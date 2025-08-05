@@ -62,7 +62,7 @@ func RedisClient() *redis.ClusterClient {
 	_, err := client.Ping(context.TODO()).Result()
 	if err != nil {
 
-		log.Printf("Failed to ping redis | %v | auth %s | %s", addr, auth, err.Error())
+		log.Printf("Failed to ping redis | %v | username %s | auth %s | %s", addr, username, auth, err.Error())
 		panic(err)
 	}
 
