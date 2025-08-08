@@ -7,7 +7,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"log"
 	"os"
-	"strings"
+	"strconv"
 	"time"
 )
 
@@ -15,26 +15,26 @@ import (
 func RedisClient() *redis.Client {
 
 	host := os.Getenv("FEEDS_REDIS_HOST")
-	if len(host) == 0 {
+	port := os.Getenv("FEEDS_REDIS_PORT")
+	db := os.Getenv("FEEDS_REDIS_DATABASE_NUMBER")
+	auth := os.Getenv("FEEDS_REDIS_PASSWORD")
 
-		panic("missing feeds redis host")
+	dbNumber, err := strconv.Atoi(db)
+	if err != nil {
+
+		dbNumber = 0
 	}
 
-	auth := strings.TrimSpace(os.Getenv("FEEDS_REDIS_PASSWORD"))
-	username := strings.TrimSpace(os.Getenv("FEEDS_REDIS_USERNAME"))
-
-	if len(username) == 0 {
-
-		username = "default"
-	}
+	uri := fmt.Sprintf("redis://%s:%s", host, port)
+	uri = fmt.Sprintf("%s:%s", host, port)
 
 	opts := redis.Options{
-		MinIdleConns: 10,
-		//IdleTimeout:  60 * time.Second,
-		PoolSize:    10000,
-		Addr:        host,
-		ReadTimeout: 3 * time.Second,
-		Username:    username,
+		MinIdleConns: 100,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		PoolSize:     100,
+		Addr:         uri,
+		DB:           dbNumber, // use default DB
 	}
 
 	if len(auth) > 0 {
@@ -54,10 +54,10 @@ func RedisClient() *redis.Client {
 		panic(err)
 	}
 
-	_, err := client.Ping(context.TODO()).Result()
+	_, err = client.Ping(context.TODO()).Result()
 	if err != nil {
 
-		log.Printf("Failed to ping redis | %v | username %s | auth %s | %s", host, username, auth, err.Error())
+		log.Printf("Failed to ping redis | %v | auth %s | %s", host, auth, err.Error())
 		panic(err)
 	}
 
