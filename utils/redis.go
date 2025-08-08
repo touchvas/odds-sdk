@@ -58,7 +58,7 @@ func RedisClient() *redis.Client {
 	if err != nil {
 
 		log.Printf("Failed to ping redis | %v | auth %s | %s", host, auth, err.Error())
-		panic(err)
+		//panic(err)
 	}
 
 	return client
