@@ -20,6 +20,7 @@ require (
 )
 
 require (
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-sql-driver/mysql v1.9.2
 	github.com/nats-io/nats.go v1.41.1
 	github.com/redis/go-redis/extra/redisotel/v9 v9.11.0

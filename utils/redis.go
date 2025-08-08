@@ -19,26 +19,30 @@ func RedisClient() *redis.Client {
 	db := os.Getenv("FEEDS_REDIS_DATABASE_NUMBER")
 	auth := os.Getenv("FEEDS_REDIS_PASSWORD")
 
+	// --- Debugging Check: Ensure host and port are set
+	if host == "" || port == "" {
+		log.Fatal("FATAL: Redis host or port environment variables are not set.")
+	}
+
 	dbNumber, err := strconv.Atoi(db)
 	if err != nil {
-
+		log.Printf("Could not convert DB number, defaulting to 0: %v", err)
 		dbNumber = 0
 	}
 
-	uri := fmt.Sprintf("redis://%s:%s", host, port)
-	uri = fmt.Sprintf("%s:%s", host, port)
+	// The `Addr` field expects a "host:port" string.
+	addr := fmt.Sprintf("%s:%s", host, port)
 
 	opts := redis.Options{
 		MinIdleConns: 100,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		PoolSize:     100,
-		Addr:         uri,
-		DB:           dbNumber, // use default DB
+		Addr:         addr,
+		DB:           dbNumber,
 	}
 
 	if len(auth) > 0 {
-
 		opts.Password = auth
 	}
 
@@ -56,9 +60,8 @@ func RedisClient() *redis.Client {
 
 	_, err = client.Ping(context.TODO()).Result()
 	if err != nil {
-
-		log.Printf("Failed to ping redis | %v | auth %s | %s", host, auth, err.Error())
-		//panic(err)
+		// Log the connection string to help with debugging
+		log.Fatalf("Failed to ping redis | Address: %s | Auth: %s | Error: %v", addr, auth, err)
 	}
 
 	return client
