@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	goutils "github.com/mudphilo/go-utils"
-	nats "github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
 	"github.com/touchvas/odds-sdk/v3/constants"
 	"github.com/touchvas/odds-sdk/v3/constants/sport_event_status"
@@ -25,7 +24,6 @@ var NameSpace = os.Getenv("ODDS_FEED_NAMESPACE")
 type RedisFeed struct {
 	feeds.Feed
 	RedisClient *redis.ClusterClient
-	NatsClient  *nats.Conn
 }
 
 var instance *RedisFeed
@@ -38,7 +36,6 @@ func GetFeedsInstance() *RedisFeed {
 		fmt.Println("Creating Redis Feeds instance")
 		instance = &RedisFeed{
 			RedisClient: utils.RedisClient(),
-			NatsClient:  utils.GetNatsConnection(),
 		}
 	})
 
@@ -509,7 +506,6 @@ func (rds *RedisFeed) GetAllMarkets(ctx context.Context, producerID, matchID int
 	if !keyExists {
 
 		log.Printf("key not found %s ", keyName)
-		rds.RequestOdds(matchID)
 		return nil
 	}
 
@@ -555,7 +551,6 @@ func (rds *RedisFeed) GetMarket(ctx context.Context, producerID, matchID, market
 	keyExists := rds.keyExist(ctx, redisMarketKey)
 	if !keyExists {
 
-		rds.RequestOdds(matchID)
 		return nil
 	}
 
@@ -565,7 +560,6 @@ func (rds *RedisFeed) GetMarket(ctx context.Context, producerID, matchID, market
 
 	if len(matchDataAsString) == 0 {
 
-		rds.RequestOdds(matchID)
 		return nil
 	}
 
@@ -650,8 +644,6 @@ func (rds *RedisFeed) GetOdds(ctx context.Context, matchID, marketID int64, spec
 
 		}
 
-		rds.RequestOdds(matchID)
-
 		return nil
 	}
 
@@ -712,7 +704,6 @@ func (rds *RedisFeed) GetAllMarketsOrderByList(ctx context.Context, producerID, 
 
 	if !keyExists {
 
-		rds.RequestOdds(matchID)
 		return nil
 	}
 
@@ -796,7 +787,6 @@ func (rds *RedisFeed) GetSpecifiedMarkets(ctx context.Context, producerID, match
 
 	if !keyExists {
 
-		rds.RequestOdds(matchID)
 		return nil
 	}
 
@@ -1220,8 +1210,6 @@ func (rds *RedisFeed) GetFixtureStatus(ctx context.Context, matchID int64) model
 	data, _ := utils.GetRedisKey(ctx, rds.RedisClient, redisKey)
 	if len(data) == 0 {
 
-		rds.RequestMatchTime(matchID)
-
 		return models.FixtureStatus{
 			Status:     0,
 			StatusName: sport_event_status.NotStarted,
@@ -1258,29 +1246,5 @@ func (rds *RedisFeed) SetFixtureStatus(ctx context.Context, matchID int64, fx mo
 	}
 
 	return err
-
-}
-
-func (rds *RedisFeed) RequestOdds(matchID int64) error {
-
-	if os.Getenv("FEEDS_SOURCE") == "geniussports" {
-
-		return fmt.Errorf("odds recovery not supported")
-
-	}
-
-	return utils.PublishToNats(rds.NatsClient, "odds_recovery", map[string]interface{}{"match_id": matchID})
-
-}
-
-func (rds *RedisFeed) RequestMatchTime(matchID int64) error {
-
-	if os.Getenv("FEEDS_SOURCE") == "geniussports" {
-
-		return fmt.Errorf("match timeline not supported")
-
-	}
-
-	return utils.PublishToNats(rds.NatsClient, "match_timeline", map[string]interface{}{"match_id": matchID})
 
 }
