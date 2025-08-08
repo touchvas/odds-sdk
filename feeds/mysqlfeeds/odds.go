@@ -24,7 +24,7 @@ type MysqlFeed struct {
 	feeds.Feed
 	DB          *sql.DB
 	NatsClient  *nats.Conn
-	RedisClient *redis.ClusterClient
+	RedisClient *redis.Client
 }
 
 type marketTmp struct {

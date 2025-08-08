@@ -23,7 +23,7 @@ var NameSpace = os.Getenv("ODDS_FEED_NAMESPACE")
 
 type RedisFeed struct {
 	feeds.Feed
-	RedisClient *redis.ClusterClient
+	RedisClient *redis.Client
 }
 
 var instance *RedisFeed

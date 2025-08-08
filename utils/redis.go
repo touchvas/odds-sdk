@@ -12,48 +12,37 @@ import (
 )
 
 // RedisClient gets redis client
-func RedisClient() *redis.ClusterClient {
+func RedisClient() *redis.Client {
 
-	host := os.Getenv("FEEDS_REDIS_CLUSTER_HOST")
+	host := os.Getenv("FEEDS_REDIS_HOST")
 	if len(host) == 0 {
 
 		panic("missing feeds redis host")
 	}
 
-	auth := strings.TrimSpace(os.Getenv("FEEDS_REDIS_CLUSTER_PASSWORD"))
-	username := strings.TrimSpace(os.Getenv("FEEDS_REDIS_CLUSTER_USERNAME"))
+	auth := strings.TrimSpace(os.Getenv("FEEDS_REDIS_PASSWORD"))
+	username := strings.TrimSpace(os.Getenv("FEEDS_REDIS_USERNAME"))
 
 	if len(username) == 0 {
 
 		username = "default"
 	}
 
-	addr := strings.Split(host, ",")
-
-	dsn := fmt.Sprintf("redis://%s:%s@%s:6379?dial_timeout=3&read_timeout=6s", username, auth, host)
-
-	opts, _ := redis.ParseClusterURL(dsn)
-
-	/*
-		opts := redis.ClusterOptions{
-			MinIdleConns: 10,
-			//IdleTimeout:  60 * time.Second,
-			PoolSize:    10000,
-			Addrs:       addr,
-			ReadTimeout: 3 * time.Second,
-			Username:    username,
-			// To route commands by latency or randomly, enable one of the following.
-			//RouteByLatency: true,
-			//RouteRandomly: true,
-		}
-	*/
+	opts := redis.Options{
+		MinIdleConns: 10,
+		//IdleTimeout:  60 * time.Second,
+		PoolSize:    10000,
+		Addr:        host,
+		ReadTimeout: 3 * time.Second,
+		Username:    username,
+	}
 
 	if len(auth) > 0 {
 
-		// opts.Password = auth
+		opts.Password = auth
 	}
 
-	client := redis.NewClusterClient(opts)
+	client := redis.NewClient(&opts)
 
 	// Enable tracing instrumentation.
 	if err := redisotel.InstrumentTracing(client); err != nil {
@@ -68,7 +57,7 @@ func RedisClient() *redis.ClusterClient {
 	_, err := client.Ping(context.TODO()).Result()
 	if err != nil {
 
-		log.Printf("Failed to ping redis | %v | username %s | auth %s | %s", addr, username, auth, err.Error())
+		log.Printf("Failed to ping redis | %v | username %s | auth %s | %s", host, username, auth, err.Error())
 		panic(err)
 	}
 
@@ -76,7 +65,7 @@ func RedisClient() *redis.ClusterClient {
 }
 
 // GetRedisKey get saved key from redis
-func GetRedisKey(ctx context.Context, conn *redis.ClusterClient, key string) (string, error) {
+func GetRedisKey(ctx context.Context, conn *redis.Client, key string) (string, error) {
 
 	var data string
 	data, err := conn.Get(ctx, key).Result()
@@ -91,7 +80,7 @@ func GetRedisKey(ctx context.Context, conn *redis.ClusterClient, key string) (st
 }
 
 // SetRedisKeyWithExpiry saves key to redis with TTL value
-func SetRedisKeyWithExpiry(ctx context.Context, conn *redis.ClusterClient, key string, value string, seconds int) error {
+func SetRedisKeyWithExpiry(ctx context.Context, conn *redis.Client, key string, value string, seconds int) error {
 
 	_, err := conn.Set(ctx, key, value, time.Second*time.Duration(seconds)).Result()
 	if err != nil {
@@ -111,7 +100,7 @@ func SetRedisKeyWithExpiry(ctx context.Context, conn *redis.ClusterClient, key s
 }
 
 // SetRedisKey saves key to redis without expiry
-func SetRedisKey(ctx context.Context, conn *redis.ClusterClient, key string, value string) error {
+func SetRedisKey(ctx context.Context, conn *redis.Client, key string, value string) error {
 
 	_, err := conn.Set(ctx, key, value, 0).Result()
 	if err != nil {
@@ -131,7 +120,7 @@ func SetRedisKey(ctx context.Context, conn *redis.ClusterClient, key string, val
 }
 
 // DeleteRedisKey deletes a saved redis keys
-func DeleteRedisKey(ctx context.Context, conn *redis.ClusterClient, key string) error {
+func DeleteRedisKey(ctx context.Context, conn *redis.Client, key string) error {
 
 	_, err := conn.Del(ctx, key).Result()
 	if err != nil {
@@ -144,7 +133,7 @@ func DeleteRedisKey(ctx context.Context, conn *redis.ClusterClient, key string) 
 }
 
 // DeleteKeysByPattern deletes a set of keys matching the supplied pattern
-func DeleteKeysByPattern(ctx context.Context, conn *redis.ClusterClient, keyPattern string) error {
+func DeleteKeysByPattern(ctx context.Context, conn *redis.Client, keyPattern string) error {
 
 	iter := conn.Scan(ctx, 0, keyPattern, 0).Iterator()
 	for iter.Next(ctx) {
@@ -161,7 +150,7 @@ func DeleteKeysByPattern(ctx context.Context, conn *redis.ClusterClient, keyPatt
 	return nil
 }
 
-func RedisKeyExists(ctx context.Context, conn *redis.ClusterClient, key string) (bool, error) {
+func RedisKeyExists(ctx context.Context, conn *redis.Client, key string) (bool, error) {
 
 	check, err := conn.Exists(ctx, key).Result()
 	if err != nil {
@@ -173,7 +162,7 @@ func RedisKeyExists(ctx context.Context, conn *redis.ClusterClient, key string) 
 	return check > 0, nil
 }
 
-func GetAllKeysByPattern(ctx context.Context, conn *redis.ClusterClient, keyPattern string) []string {
+func GetAllKeysByPattern(ctx context.Context, conn *redis.Client, keyPattern string) []string {
 
 	var keys []string
 	iter := conn.Scan(ctx, 0, keyPattern, 0).Iterator()
