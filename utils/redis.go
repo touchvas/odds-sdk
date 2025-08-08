@@ -30,24 +30,30 @@ func RedisClient() *redis.ClusterClient {
 
 	addr := strings.Split(host, ",")
 
-	opts := redis.ClusterOptions{
-		MinIdleConns: 10,
-		//IdleTimeout:  60 * time.Second,
-		PoolSize:    10000,
-		Addrs:       addr,
-		ReadTimeout: 3 * time.Second,
-		Username:    username,
-		// To route commands by latency or randomly, enable one of the following.
-		//RouteByLatency: true,
-		//RouteRandomly: true,
-	}
+	dsn := fmt.Sprintf("redis://%s:%s@%s:6379?dial_timeout=3&read_timeout=6s", username, auth, host)
+
+	opts, _ := redis.ParseClusterURL(dsn)
+
+	/*
+		opts := redis.ClusterOptions{
+			MinIdleConns: 10,
+			//IdleTimeout:  60 * time.Second,
+			PoolSize:    10000,
+			Addrs:       addr,
+			ReadTimeout: 3 * time.Second,
+			Username:    username,
+			// To route commands by latency or randomly, enable one of the following.
+			//RouteByLatency: true,
+			//RouteRandomly: true,
+		}
+	*/
 
 	if len(auth) > 0 {
 
-		opts.Password = auth
+		// opts.Password = auth
 	}
 
-	client := redis.NewClusterClient(&opts)
+	client := redis.NewClusterClient(opts)
 
 	// Enable tracing instrumentation.
 	if err := redisotel.InstrumentTracing(client); err != nil {
