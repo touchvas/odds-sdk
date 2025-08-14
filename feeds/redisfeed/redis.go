@@ -48,8 +48,6 @@ func (rds *RedisFeed) OddsChange(ctx context.Context, odds models.OddsChange) (i
 
 	DebugMatchID, _ := strconv.ParseInt(os.Getenv("DEBUG_MATCH_ID"), 10, 64)
 
-	//log.Printf("Odds Change | %d | markets %d | producerID %d ", odds.MatchID, len(odds.Markets), odds.ProducerID)
-
 	defaultMarketID := int64(0)
 
 	uniqueTotalMarkets := make(map[int64]int64)
@@ -406,8 +404,6 @@ func (rds *RedisFeed) BetStop(ctx context.Context, producerID, matchID, status i
 
 	arrival := time.Now().UnixMilli()
 
-	// log.Printf("Bet Stop | %d | producerID %d ", matchID, producerID)
-
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
 
@@ -505,7 +501,6 @@ func (rds *RedisFeed) GetAllMarkets(ctx context.Context, producerID, matchID int
 
 	if !keyExists {
 
-		log.Printf("key not found %s ", keyName)
 		return nil
 	}
 
@@ -898,7 +893,6 @@ func (rds *RedisFeed) keyExist(ctx context.Context, key string) bool {
 	check, err := utils.RedisKeyExists(ctx, rds.RedisClient, key)
 	if err != nil {
 
-		log.Printf("error checking if redisKey %s exist | %s", key, err.Error())
 		return false
 
 	}
@@ -930,7 +924,6 @@ func (rds *RedisFeed) getAllMarketsOrderByPriority(ctx context.Context, producer
 
 	if !keyExists {
 
-		log.Printf("got getAllMarketsOrderByPriority for a match that does not exist - %s ", keyName)
 		return nil
 	}
 
@@ -1239,12 +1232,6 @@ func (rds *RedisFeed) SetFixtureStatus(ctx context.Context, matchID int64, fx mo
 
 	js, _ := json.Marshal(fx)
 
-	err := utils.SetRedisKey(ctx, rds.RedisClient, redisKey, string(js))
-	if err != nil {
-
-		log.Printf("error setting redis key %s | %s", redisKey, err.Error())
-	}
-
-	return err
+	return utils.SetRedisKey(ctx, rds.RedisClient, redisKey, string(js))
 
 }
