@@ -8,8 +8,48 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
+
+// RedisClusterClient gets redis cluster client
+func RedisClusterClient() *redis.ClusterClient {
+
+	host := os.Getenv("FEEDS_REDIS_CLUSTER_HOST")
+	auth := os.Getenv("FEEDS_REDIS_PASSWORD")
+
+	opts := redis.ClusterOptions{
+		MinIdleConns: 100,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		PoolSize:     100,
+		Addrs:        strings.Split(host, ","),
+	}
+
+	if len(auth) > 0 {
+		opts.Password = auth
+	}
+
+	client := redis.NewClusterClient(&opts)
+
+	// Enable tracing instrumentation.
+	if err := redisotel.InstrumentTracing(client); err != nil {
+		panic(err)
+	}
+
+	// Enable metrics instrumentation.
+	if err := redisotel.InstrumentMetrics(client); err != nil {
+		panic(err)
+	}
+
+	_, err := client.Ping(context.TODO()).Result()
+	if err != nil {
+		// Log the connection string to help with debugging
+		log.Fatalf("Failed to ping redis | Address: %s | Auth: %s | Error: %v", host, auth, err)
+	}
+
+	return client
+}
 
 // RedisClient gets redis client
 func RedisClient() *redis.Client {
@@ -26,6 +66,7 @@ func RedisClient() *redis.Client {
 
 	dbNumber, err := strconv.Atoi(db)
 	if err != nil {
+
 		log.Printf("Could not convert DB number, defaulting to 0: %v", err)
 		dbNumber = 0
 	}
@@ -68,7 +109,7 @@ func RedisClient() *redis.Client {
 }
 
 // GetRedisKey get saved key from redis
-func GetRedisKey(ctx context.Context, conn *redis.Client, key string) (string, error) {
+func GetRedisKey(ctx context.Context, conn *redis.ClusterClient, key string) (string, error) {
 
 	var data string
 	data, err := conn.Get(ctx, key).Result()
@@ -83,7 +124,7 @@ func GetRedisKey(ctx context.Context, conn *redis.Client, key string) (string, e
 }
 
 // SetRedisKeyWithExpiry saves key to redis with TTL value
-func SetRedisKeyWithExpiry(ctx context.Context, conn *redis.Client, key string, value string, seconds int) error {
+func SetRedisKeyWithExpiry(ctx context.Context, conn *redis.ClusterClient, key string, value string, seconds int) error {
 
 	_, err := conn.Set(ctx, key, value, time.Second*time.Duration(seconds)).Result()
 	if err != nil {
@@ -103,7 +144,7 @@ func SetRedisKeyWithExpiry(ctx context.Context, conn *redis.Client, key string, 
 }
 
 // SetRedisKey saves key to redis without expiry
-func SetRedisKey(ctx context.Context, conn *redis.Client, key string, value string) error {
+func SetRedisKey(ctx context.Context, conn *redis.ClusterClient, key string, value string) error {
 
 	_, err := conn.Set(ctx, key, value, 0).Result()
 	if err != nil {
@@ -123,7 +164,7 @@ func SetRedisKey(ctx context.Context, conn *redis.Client, key string, value stri
 }
 
 // DeleteRedisKey deletes a saved redis keys
-func DeleteRedisKey(ctx context.Context, conn *redis.Client, key string) error {
+func DeleteRedisKey(ctx context.Context, conn *redis.ClusterClient, key string) error {
 
 	_, err := conn.Del(ctx, key).Result()
 	if err != nil {
@@ -136,7 +177,7 @@ func DeleteRedisKey(ctx context.Context, conn *redis.Client, key string) error {
 }
 
 // DeleteKeysByPattern deletes a set of keys matching the supplied pattern
-func DeleteKeysByPattern(ctx context.Context, conn *redis.Client, keyPattern string) error {
+func DeleteKeysByPattern(ctx context.Context, conn *redis.ClusterClient, keyPattern string) error {
 
 	iter := conn.Scan(ctx, 0, keyPattern, 0).Iterator()
 	for iter.Next(ctx) {
@@ -153,7 +194,7 @@ func DeleteKeysByPattern(ctx context.Context, conn *redis.Client, keyPattern str
 	return nil
 }
 
-func RedisKeyExists(ctx context.Context, conn *redis.Client, key string) (bool, error) {
+func RedisKeyExists(ctx context.Context, conn *redis.ClusterClient, key string) (bool, error) {
 
 	check, err := conn.Exists(ctx, key).Result()
 	if err != nil {
@@ -165,7 +206,7 @@ func RedisKeyExists(ctx context.Context, conn *redis.Client, key string) (bool, 
 	return check > 0, nil
 }
 
-func GetAllKeysByPattern(ctx context.Context, conn *redis.Client, keyPattern string) []string {
+func GetAllKeysByPattern(ctx context.Context, conn *redis.ClusterClient, keyPattern string) []string {
 
 	var keys []string
 	iter := conn.Scan(ctx, 0, keyPattern, 0).Iterator()

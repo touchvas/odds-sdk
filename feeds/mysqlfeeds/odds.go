@@ -24,7 +24,7 @@ type MysqlFeed struct {
 	feeds.Feed
 	DB          *sql.DB
 	NatsClient  *nats.Conn
-	RedisClient *redis.Client
+	RedisClient *redis.ClusterClient
 }
 
 type marketTmp struct {
@@ -74,7 +74,7 @@ func GetFeedsInstance() *MysqlFeed {
 		instance = &MysqlFeed{
 			DB:          DbInstance(),
 			NatsClient:  utils.GetNatsConnection(),
-			RedisClient: utils.RedisClient(),
+			RedisClient: utils.RedisClusterClient(),
 		}
 	})
 
