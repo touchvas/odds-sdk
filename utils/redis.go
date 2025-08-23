@@ -16,7 +16,7 @@ import (
 func RedisClusterClient() *redis.ClusterClient {
 
 	host := os.Getenv("FEEDS_REDIS_CLUSTER_HOST")
-	auth := os.Getenv("FEEDS_REDIS_PASSWORD")
+	auth := os.Getenv("FEEDS_REDIS_CLUSTER_PASSWORD")
 
 	opts := redis.ClusterOptions{
 		MinIdleConns: 100,
