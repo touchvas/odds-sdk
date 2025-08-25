@@ -15,8 +15,8 @@ import (
 // RedisClusterClient gets redis cluster client
 func RedisClusterClient() *redis.ClusterClient {
 
-	host := os.Getenv("FEEDS_REDIS_CLUSTER_HOST")
-	auth := os.Getenv("FEEDS_REDIS_CLUSTER_PASSWORD")
+	host := os.Getenv("REDIS_CLUSTER_HOST")
+	auth := os.Getenv("REDIS_CLUSTER_PASSWORD")
 
 	opts := redis.ClusterOptions{
 		MinIdleConns: 100,
@@ -54,10 +54,10 @@ func RedisClusterClient() *redis.ClusterClient {
 // RedisClient gets redis client
 func RedisClient() *redis.Client {
 
-	host := os.Getenv("FEEDS_REDIS_HOST")
-	port := os.Getenv("FEEDS_REDIS_PORT")
-	db := os.Getenv("FEEDS_REDIS_DATABASE_NUMBER")
-	auth := os.Getenv("FEEDS_REDIS_PASSWORD")
+	host := os.Getenv("REDIS_HOST")
+	port := os.Getenv("REDIS_PORT")
+	db := os.Getenv("REDIS_DATABASE_NUMBER")
+	auth := os.Getenv("REDIS_PASSWORD")
 
 	// --- Debugging Check: Ensure host and port are set
 	if host == "" || port == "" {
