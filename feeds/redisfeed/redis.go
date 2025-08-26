@@ -14,477 +14,26 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 var NameSpace = os.Getenv("ODDS_FEED_NAMESPACE")
 
 type RedisFeed struct {
 	feeds.Feed
-	RedisClient *redis.Client
 }
 
 var instance *RedisFeed
-var once sync.Once
 
 func GetFeedsInstance() *RedisFeed {
 
-	once.Do(func() {
-
-		fmt.Println("Creating Redis Feeds instance")
-		instance = &RedisFeed{
-			RedisClient: utils.RedisClient(),
-		}
-	})
+	instance = &RedisFeed{}
 
 	return instance
 
 }
 
-// OddsChange Update new odds change message
-func (rds *RedisFeed) OddsChange(ctx context.Context, odds models.OddsChange) (int, error) {
-
-	DebugMatchID, _ := strconv.ParseInt(os.Getenv("DEBUG_MATCH_ID"), 10, 64)
-
-	defaultMarketID := int64(0)
-
-	uniqueTotalMarkets := make(map[int64]int64)
-
-	defaultMarketsList := []string{"1", "186", "219", "340", "251"}
-
-	// get table name based on producerID
-	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
-
-	if odds.ProducerID == 1 || odds.ProducerID == 4 {
-
-		tableName = fmt.Sprintf("%s:%s", NameSpace, constants.LiveSet)
-	}
-
-	// namespace:table:matchID
-	keyName := fmt.Sprintf(constants.KeyTemplate, tableName, odds.MatchID)
-
-	if odds.MatchID == DebugMatchID {
-
-		log.Printf("Primary key name %s | received markets %d ", keyName, len(odds.Markets))
-
-	}
-
-	if odds.MatchID == DebugMatchID {
-
-		jsP, _ := json.Marshal(odds)
-		log.Printf("%s", string(jsP))
-
-	}
-
-	// odds will come with empty or zero markets if the odds were meant to update match status or match scores
-	// this handled by a different process
-	if len(odds.Markets) == 0 {
-
-		if odds.MatchID == DebugMatchID {
-
-			log.Printf("no markets for matchID %d ", odds.MatchID)
-
-		}
-
-		return 0, nil
-	}
-
-	// get existing data
-	// Read a record
-
-	keyExists := rds.keyExist(ctx, keyName)
-
-	matchKeys := fmt.Sprintf(constants.KeysFieldTemplate, keyName)
-
-	// set the active producer for this match
-	rds.SetProducerID(ctx, odds.MatchID, odds.ProducerID)
-
-	// create new keys if it does not exist, this occurs the first time we receive odds for a match
-	//or the first odds after a match transitions from prematch to live (producerID changes)
-	if !keyExists {
-
-		var keys []string
-
-		if odds.MatchID == DebugMatchID {
-
-			log.Printf("keyExists %s does not exist ", keyName)
-
-		}
-
-		// loop through all the received markets
-		for _, m := range odds.Markets {
-
-			cacheValue, _ := json.Marshal(m)
-
-			specifierKey := m.Specifier
-			if len(specifierKey) == 0 {
-
-				// if specifier is empty, to avoid using empty in between key name, we use no-specifier
-				specifierKey = constants.EmptySpecifier
-			}
-
-			// namespace:table:match-matchID:market-marketID:specifierKey
-			redisMarketKey := fmt.Sprintf("%s:market-%d:%s", keyName, m.MarketID, specifierKey)
-			if odds.MatchID == DebugMatchID {
-
-				log.Printf("Saving data to %s ", redisMarketKey)
-
-			}
-
-			// save each market data as redis keys
-			// this will be used on the homepage or when gettings odds via GRPC
-			utils.SetRedisKey(ctx, rds.RedisClient, redisMarketKey, string(cacheValue))
-
-			// keep a record of all created market keys
-			keys = append(keys, redisMarketKey)
-
-			if defaultMarketID == 0 && len(m.Outcomes) > 0 {
-
-				if goutils.Contains(defaultMarketsList, fmt.Sprintf("%d", m.MarketID)) {
-
-					defaultMarketID = m.MarketID
-
-				}
-
-			}
-
-			if len(m.Outcomes) > 0 && (m.Status == 0 || m.Status == 5) {
-
-				uniqueTotalMarkets[m.MarketID] = 1
-			}
-
-		}
-
-		// save the entire markets into one key, this will be used in get more/detailed/all market endpoint
-		jsonValue, _ := json.Marshal(odds.Markets)
-		utils.SetRedisKey(ctx, rds.RedisClient, keyName, string(jsonValue))
-
-		// save all the market keys for easier retrieval of data later
-		jsonValue, _ = json.Marshal(keys)
-		utils.SetRedisKey(ctx, rds.RedisClient, matchKeys, string(jsonValue))
-
-		if defaultMarketID > 0 {
-
-			defaultMarketKey := fmt.Sprintf("%s:default-market-id:%d", NameSpace, odds.MatchID)
-			utils.SetRedisKey(ctx, rds.RedisClient, defaultMarketKey, fmt.Sprintf("%d", defaultMarketID))
-
-		}
-
-		totalMarketsKey := fmt.Sprintf("%s:total-markets:%d", NameSpace, odds.MatchID)
-		utils.SetRedisKey(ctx, rds.RedisClient, totalMarketsKey, fmt.Sprintf("%d", len(uniqueTotalMarkets)))
-
-		sportsKey := fmt.Sprintf("sport-id:%d", odds.MatchID)
-		utils.SetRedisKey(ctx, rds.RedisClient, sportsKey, fmt.Sprintf("%d", odds.SportID))
-
-		if DebugMatchID == odds.MatchID {
-
-			log.Printf("all keys %s ", string(jsonValue))
-		}
-
-		ttl := time.Now().UnixMilli() - odds.BetradarTimestamp
-		processingTime := time.Now().UnixMilli() - odds.ConsumerArrivalTime
-
-		// log time taken to process odds, we have to process within 2s
-		mq := odds.ConsumerArrivalTime - odds.PublishTimestamp
-		publisher := odds.ProcessingTime
-
-		if ttl > 2000 {
-
-			// if this logs appears too frequently then we have an issue,
-			// @TODO send slack alerts if code gets here more than 5 times in one minute, this means processing of feeds is slow
-			log.Printf("Producer %d | OddsChange | %s | %dms | processing %dms | queueing time %dms | time to publisher %dms ", odds.ProducerID, keyName, ttl, processingTime, mq, publisher)
-
-		}
-
-		return len(odds.Markets), nil
-
-	}
-
-	// if we get here, there is an already existing markets for this match
-	// this feeds may contain all the markets or only a few markets that already exist or new markets that does not exist
-	// we have to only update markets we have received in odds.Markets, the other markets should be left unchanged
-
-	var keys []string
-
-	// get all existing market keys for this matchID
-	keysListAsString, _ := utils.GetRedisKey(ctx, rds.RedisClient, matchKeys)
-	err := json.Unmarshal([]byte(keysListAsString), &keys)
-	if err != nil {
-
-		log.Printf("failed to unmarshal %s to market keys array []string %s ", keysListAsString, err.Error())
-
-	}
-
-	// to ensure we are not storing duplicate match keys, we have to use a different data structure (map[string]int) to store keys
-	uniqueKeys := make(map[string]models.Market)
-	for _, k := range keys {
-
-		uniqueKeys[k] = models.Market{
-			MarketID: 0, // set marketID as 0 to enable us replace it later
-		}
-	}
-
-	for _, m := range odds.Markets {
-
-		specifierKey := m.Specifier
-		if len(specifierKey) == 0 {
-
-			// if specifier is empty, to avoid using empty in between key name, we use no-specifier
-			specifierKey = constants.EmptySpecifier
-		}
-
-		// namespace:table:match-matchID:market-marketID:specifierKey
-		redisMarketKey := fmt.Sprintf("%s:market-%d:%s", keyName, m.MarketID, specifierKey)
-		if odds.MatchID == DebugMatchID {
-
-			log.Printf("saving data to %s ", redisMarketKey)
-
-		}
-
-		// if odds dont have outcome, this message is meant to only update market status of the existing markets
-		// this scenario occurs when specific markets have to be suspended e.g first half markets when the 1st half ends
-		if len(m.Outcomes) == 0 { // only update market status
-
-			// check if the market exists
-			// only update markets that exists
-
-			marketDataAsString, _ := utils.GetRedisKey(ctx, rds.RedisClient, redisMarketKey)
-			if len(marketDataAsString) > 0 {
-
-				var market models.Market
-				err = json.Unmarshal([]byte(marketDataAsString), &market)
-				if err != nil {
-
-					log.Printf("error unmarshaling %s to models.Market %s ", marketDataAsString, err.Error())
-					continue
-				}
-
-				// update market status with new status received
-				market.Status = m.Status
-				market.StatusName = m.StatusName
-
-				// save market to redis
-				jsonValue, _ := json.Marshal(market)
-				utils.SetRedisKey(ctx, rds.RedisClient, redisMarketKey, string(jsonValue))
-
-				// save market to keys map
-				uniqueKeys[redisMarketKey] = market
-
-			}
-
-			continue
-		}
-
-		// replace existing market with new market values we have received
-		// create new market if it does not exists
-		//currentMarkets[redisMarketKey] = m
-
-		// save market to redis
-		jsonValue, _ := json.Marshal(m)
-		utils.SetRedisKey(ctx, rds.RedisClient, redisMarketKey, string(jsonValue))
-
-		// save market to keys map
-		uniqueKeys[redisMarketKey] = m
-
-		if defaultMarketID == 0 && len(m.Outcomes) > 0 {
-
-			if goutils.Contains(defaultMarketsList, fmt.Sprintf("%d", m.MarketID)) {
-
-				defaultMarketID = m.MarketID
-
-			}
-
-		}
-
-		continue
-
-	}
-
-	// all the market keys updated accordingly and persisted in redis
-	// lets pull all the data together
-	var allMarketsData []models.Market
-
-	var allKeys []string
-
-	for k, v := range uniqueKeys {
-
-		if odds.MatchID == DebugMatchID {
-
-			log.Printf("Unique keys %s ", k)
-
-		}
-
-		if len(v.Outcomes) > 0 && (v.Status == 0 || v.Status == 5) {
-
-			uniqueTotalMarkets[v.MarketID] = 1
-		}
-
-		// save keys
-		allKeys = append(allKeys, k)
-
-		if v.MarketID > 0 { // market data already exist
-
-			allMarketsData = append(allMarketsData, v)
-			continue
-
-		}
-
-		marketDataAsString, _ := utils.GetRedisKey(ctx, rds.RedisClient, k)
-		if len(marketDataAsString) > 0 {
-
-			var market models.Market
-			err = json.Unmarshal([]byte(marketDataAsString), &market)
-			if err != nil {
-
-				log.Printf("error unmarshaling %s to models.Market %s ", marketDataAsString, err.Error())
-				continue
-			}
-
-			allMarketsData = append(allMarketsData, market)
-
-		}
-
-	}
-
-	// lets do market ordering,
-	// allMarketsData = rds.orderByPriority(allMarketsData, priorityList1)
-
-	jsonValue, _ := json.Marshal(allMarketsData)
-	utils.SetRedisKey(ctx, rds.RedisClient, keyName, string(jsonValue))
-	if DebugMatchID == odds.MatchID {
-
-		log.Printf("all markets %s ", string(jsonValue))
-	}
-
-	jsonValue, _ = json.Marshal(allKeys)
-	utils.SetRedisKey(ctx, rds.RedisClient, matchKeys, string(jsonValue))
-
-	if DebugMatchID == odds.MatchID {
-
-		log.Printf("all keys %s ", string(jsonValue))
-	}
-
-	if defaultMarketID > 0 {
-
-		defaultMarketKey := fmt.Sprintf("%s:default-market-id:%d", NameSpace, odds.MatchID)
-		utils.SetRedisKey(ctx, rds.RedisClient, defaultMarketKey, fmt.Sprintf("%d", defaultMarketID))
-
-	}
-
-	totalMarketsKey := fmt.Sprintf("%s:total-markets:%d", NameSpace, odds.MatchID)
-	utils.SetRedisKey(ctx, rds.RedisClient, totalMarketsKey, fmt.Sprintf("%d", len(uniqueTotalMarkets)))
-
-	sportsKey := fmt.Sprintf("sport-id:%d", odds.MatchID)
-	utils.SetRedisKey(ctx, rds.RedisClient, sportsKey, fmt.Sprintf("%d", odds.SportID))
-
-	ttl := time.Now().UnixMilli() - odds.BetradarTimestamp
-
-	processingTime := time.Now().UnixMilli() - odds.ConsumerArrivalTime
-
-	mq := odds.ConsumerArrivalTime - odds.PublishTimestamp
-	publisher := odds.ProcessingTime
-
-	if ttl > 2000 {
-
-		// if this logs appears too frequently then we have an issue,
-		// @TODO send slack alerts if code gets here more than 5 times in one minute, this means processing of feeds is slow
-		log.Printf("Producer %d | OddsChange | %s | %dms | processing %dms | queueing time %dms | time to publisher %dms ", odds.ProducerID, keyName, ttl, processingTime, mq, publisher)
-
-	}
-
-	return len(allMarketsData), nil
-
-}
-
-// BetStop process bet stop message, this message suspends all the markets
-// the markets will be openned up again by subsequent odds change message
-func (rds *RedisFeed) BetStop(ctx context.Context, producerID, matchID, status int64, statusName string, betradarTimeStamp, publishTimestamp, publisherProcessingTime, networkLatency int64) error {
-
-	arrival := time.Now().UnixMilli()
-
-	// get table name based on producerID
-	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
-
-	if producerID == 1 || producerID == 4 {
-
-		tableName = fmt.Sprintf("%s:%s", NameSpace, constants.LiveSet)
-	}
-
-	// namespace:table:matchID
-	keyName := fmt.Sprintf(constants.KeyTemplate, tableName, matchID)
-
-	keyExists := rds.keyExist(ctx, keyName)
-	if !keyExists {
-
-		return nil
-	}
-
-	matchData := new([]models.Market)
-
-	// get all markets for this matchID and suspend them
-	matchDataAsString, _ := utils.GetRedisKey(ctx, rds.RedisClient, keyName)
-	err := json.Unmarshal([]byte(matchDataAsString), matchData)
-	if err != nil {
-
-		log.Printf("BetStop - failed to unmarshall %s to JSON %s", matchDataAsString, err.Error())
-		return err
-	}
-
-	// set the active producer for this match
-	rds.SetProducerID(ctx, matchID, producerID)
-
-	markets := *matchData
-
-	// loop through each market and update the status with the status received from betstop
-	for i, m := range markets {
-
-		m.Status = status
-		m.StatusName = statusName
-		markets[i] = m
-
-		specifierKey := m.Specifier
-		if len(specifierKey) == 0 {
-
-			specifierKey = constants.EmptySpecifier
-		}
-
-		// update data saved under market keys with updated data
-		// namespace:table:match-matchID:market-marketID:specifierKey
-		redisMarketKey := fmt.Sprintf("%s:market-%d:%s", keyName, m.MarketID, specifierKey)
-
-		// replace existing data
-		jsonValue, _ := json.Marshal(m)
-		utils.SetRedisKey(ctx, rds.RedisClient, redisMarketKey, string(jsonValue))
-
-	}
-
-	// replace existing data
-	jsonValue, _ := json.Marshal(markets)
-	utils.SetRedisKey(ctx, rds.RedisClient, keyName, string(jsonValue))
-
-	// log time taken to process odds, we have to process within 2s
-
-	ttl := time.Now().UnixMilli() - betradarTimeStamp
-
-	processingTime := time.Now().UnixMilli() - arrival
-	mq := arrival - publishTimestamp
-	publisher := publisherProcessingTime
-
-	if ttl > 2000 {
-
-		// if this logs appears too frequently then we have an issue,
-		// @TODO send slack alerts if code gets here more than 5 times in one minute, this means processing of feeds is slow
-		log.Printf("Producer %d | BetStop | %s | %dms | processing %dms | waiting %dms | publisher ttl %dms | latency %dms", producerID, keyName, ttl, processingTime, mq, publisher, networkLatency)
-
-	}
-
-	return nil
-}
-
 // GetAllMarkets gets all markets with odds for a particular matchID
-func (rds *RedisFeed) GetAllMarkets(ctx context.Context, producerID, matchID int64) []models.Market {
+func (rds *RedisFeed) GetAllMarkets(ctx context.Context, redisClient *redis.Client, producerID, matchID int64) []models.Market {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -497,7 +46,7 @@ func (rds *RedisFeed) GetAllMarkets(ctx context.Context, producerID, matchID int
 	// namespace:table:matchID
 	keyName := fmt.Sprintf(constants.KeyTemplate, tableName, matchID)
 
-	keyExists := rds.keyExist(ctx, keyName)
+	keyExists := rds.keyExist(ctx, redisClient, keyName)
 
 	if !keyExists {
 
@@ -506,7 +55,7 @@ func (rds *RedisFeed) GetAllMarkets(ctx context.Context, producerID, matchID int
 
 	markets := new([]models.Market)
 
-	matchDataAsString, _ := utils.GetRedisKey(ctx, rds.RedisClient, keyName)
+	matchDataAsString, _ := utils.GetRedisKey(ctx, redisClient, keyName)
 	err := json.Unmarshal([]byte(matchDataAsString), markets)
 	if err != nil {
 
@@ -518,7 +67,7 @@ func (rds *RedisFeed) GetAllMarkets(ctx context.Context, producerID, matchID int
 }
 
 // GetMarket gets market with odds for a particular matchID and marketID
-func (rds *RedisFeed) GetMarket(ctx context.Context, producerID, matchID, marketID int64, specifier string) *models.Market {
+func (rds *RedisFeed) GetMarket(ctx context.Context, redisClient *redis.Client, producerID, matchID, marketID int64, specifier string) *models.Market {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -543,7 +92,7 @@ func (rds *RedisFeed) GetMarket(ctx context.Context, producerID, matchID, market
 
 	// get existing data
 	// Read a record
-	keyExists := rds.keyExist(ctx, redisMarketKey)
+	keyExists := rds.keyExist(ctx, redisClient, redisMarketKey)
 	if !keyExists {
 
 		return nil
@@ -551,7 +100,7 @@ func (rds *RedisFeed) GetMarket(ctx context.Context, producerID, matchID, market
 
 	market := new(models.Market)
 
-	matchDataAsString, _ := utils.GetRedisKey(ctx, rds.RedisClient, redisMarketKey)
+	matchDataAsString, _ := utils.GetRedisKey(ctx, redisClient, redisMarketKey)
 
 	if len(matchDataAsString) == 0 {
 
@@ -570,12 +119,12 @@ func (rds *RedisFeed) GetMarket(ctx context.Context, producerID, matchID, market
 }
 
 // GetOdds gets odds from quadruplets matchID, marketID , specifier and outcomeID
-func (rds *RedisFeed) GetOdds(ctx context.Context, matchID, marketID int64, specifier, outcomeID string) *models.OddsDetails {
+func (rds *RedisFeed) GetOdds(ctx context.Context, redisClient *redis.Client, matchID, marketID int64, specifier, outcomeID string) *models.OddsDetails {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
 
-	producerID, _ := rds.GetProducerID(ctx, matchID)
+	producerID, _ := rds.GetProducerID(ctx, redisClient, matchID)
 
 	if producerID == 1 || producerID == 4 {
 
@@ -596,15 +145,15 @@ func (rds *RedisFeed) GetOdds(ctx context.Context, matchID, marketID int64, spec
 	redisMarketKey := fmt.Sprintf("%s:market-%d:%s", keyName, marketID, specifierKey)
 
 	sportsKey := fmt.Sprintf("sport-id:%d", matchID)
-	sportIDStr, _ := utils.GetRedisKey(ctx, rds.RedisClient, sportsKey)
+	sportIDStr, _ := utils.GetRedisKey(ctx, redisClient, sportsKey)
 	sportID, _ := strconv.ParseInt(sportIDStr, 10, 64)
 
 	// get existing data
 	// Read a record
-	keyExists := rds.keyExist(ctx, redisMarketKey)
+	keyExists := rds.keyExist(ctx, redisClient, redisMarketKey)
 	if !keyExists {
 
-		allMarkets := rds.GetAllMarkets(ctx, producerID, matchID)
+		allMarkets := rds.GetAllMarkets(ctx, redisClient, producerID, matchID)
 
 		for _, k := range allMarkets {
 
@@ -644,7 +193,7 @@ func (rds *RedisFeed) GetOdds(ctx context.Context, matchID, marketID int64, spec
 
 	market := new(models.Market)
 
-	matchDataAsString, _ := utils.GetRedisKey(ctx, rds.RedisClient, redisMarketKey)
+	matchDataAsString, _ := utils.GetRedisKey(ctx, redisClient, redisMarketKey)
 	err := json.Unmarshal([]byte(matchDataAsString), market)
 	if err != nil {
 
@@ -682,7 +231,7 @@ func (rds *RedisFeed) GetOdds(ctx context.Context, matchID, marketID int64, spec
 }
 
 // GetAllMarketsOrderByList gets all markets with odds for a particular matchID order by the supplied list of markets
-func (rds *RedisFeed) GetAllMarketsOrderByList(ctx context.Context, producerID, matchID int64, marketOderList []models.MarketOrderList) []models.Market {
+func (rds *RedisFeed) GetAllMarketsOrderByList(ctx context.Context, redisClient *redis.Client, producerID, matchID int64, marketOderList []models.MarketOrderList) []models.Market {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -695,7 +244,7 @@ func (rds *RedisFeed) GetAllMarketsOrderByList(ctx context.Context, producerID, 
 	// namespace:table:matchID
 	keyName := fmt.Sprintf(constants.KeyTemplate, tableName, matchID)
 
-	keyExists := rds.keyExist(ctx, keyName)
+	keyExists := rds.keyExist(ctx, redisClient, keyName)
 
 	if !keyExists {
 
@@ -705,7 +254,7 @@ func (rds *RedisFeed) GetAllMarketsOrderByList(ctx context.Context, producerID, 
 	markets := new([]models.Market)
 	var orderedMarkets, marketsInTheOrderedList, otherMarkets []models.Market
 
-	matchDataAsString, _ := utils.GetRedisKey(ctx, rds.RedisClient, keyName)
+	matchDataAsString, _ := utils.GetRedisKey(ctx, redisClient, keyName)
 	err := json.Unmarshal([]byte(matchDataAsString), markets)
 	if err != nil {
 
@@ -765,7 +314,7 @@ func (rds *RedisFeed) GetAllMarketsOrderByList(ctx context.Context, producerID, 
 }
 
 // GetSpecifiedMarkets gets the specified markets with odds for a particular matchID order by the supplied list of markets
-func (rds *RedisFeed) GetSpecifiedMarkets(ctx context.Context, producerID, matchID int64, marketList []models.MarketOrderList) []models.Market {
+func (rds *RedisFeed) GetSpecifiedMarkets(ctx context.Context, redisClient *redis.Client, producerID, matchID int64, marketList []models.MarketOrderList) []models.Market {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -778,7 +327,7 @@ func (rds *RedisFeed) GetSpecifiedMarkets(ctx context.Context, producerID, match
 	// namespace:table:matchID
 	keyName := fmt.Sprintf(constants.KeyTemplate, tableName, matchID)
 
-	keyExists := rds.keyExist(ctx, keyName)
+	keyExists := rds.keyExist(ctx, redisClient, keyName)
 
 	if !keyExists {
 
@@ -788,7 +337,7 @@ func (rds *RedisFeed) GetSpecifiedMarkets(ctx context.Context, producerID, match
 	markets := new([]models.Market)
 	var orderedMarkets, marketsInTheOrderedList []models.Market
 
-	matchDataAsString, _ := utils.GetRedisKey(ctx, rds.RedisClient, keyName)
+	matchDataAsString, _ := utils.GetRedisKey(ctx, redisClient, keyName)
 	err := json.Unmarshal([]byte(matchDataAsString), markets)
 	if err != nil {
 
@@ -838,7 +387,7 @@ func (rds *RedisFeed) GetSpecifiedMarkets(ctx context.Context, producerID, match
 }
 
 // DeleteAllMarkets deletes markets for the specified matchID
-func (rds *RedisFeed) DeleteAllMarkets(ctx context.Context, producerID, matchID int64) error {
+func (rds *RedisFeed) DeleteAllMarkets(ctx context.Context, redisClient *redis.Client, producerID, matchID int64) error {
 
 	// get table name based on producerID
 	tableName := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
@@ -851,46 +400,39 @@ func (rds *RedisFeed) DeleteAllMarkets(ctx context.Context, producerID, matchID 
 	// namespace:table:matchID
 	keyName := fmt.Sprintf(constants.KeyTemplate, tableName, matchID)
 
-	keyExists := rds.keyExist(ctx, keyName)
+	keyExists := rds.keyExist(ctx, redisClient, keyName)
 
 	if !keyExists {
 
 		return nil
 	}
 
-	utils.DeleteRedisKey(ctx, rds.RedisClient, keyName)
-	utils.DeleteKeysByPattern(ctx, rds.RedisClient, fmt.Sprintf("%s:*", keyName))
+	utils.DeleteRedisKey(ctx, redisClient, keyName)
+	utils.DeleteKeysByPattern(ctx, redisClient, fmt.Sprintf("%s:*", keyName))
 
 	return nil
 }
 
-// DeleteAll deletes all feeds data
-func (rds *RedisFeed) DeleteAll(ctx context.Context) error {
-
-	return utils.DeleteKeysByPattern(ctx, rds.RedisClient, fmt.Sprintf("%s:*", NameSpace))
-
-}
-
-func (rds *RedisFeed) SetProducerID(ctx context.Context, matchID, producerID int64) error {
+func (rds *RedisFeed) SetProducerID(ctx context.Context, redisClient *redis.Client, matchID, producerID int64) error {
 
 	redisKey := fmt.Sprintf(constants.ProducerTemplate, matchID)
-	return utils.SetRedisKey(ctx, rds.RedisClient, redisKey, fmt.Sprintf("%d", producerID))
+	return utils.SetRedisKey(ctx, redisClient, redisKey, fmt.Sprintf("%d", producerID))
 
 }
 
 // GetProducerID gets the active producer for a particular match
-func (rds *RedisFeed) GetProducerID(ctx context.Context, matchID int64) (id, status int64) {
+func (rds *RedisFeed) GetProducerID(ctx context.Context, redisClient *redis.Client, matchID int64) (id, status int64) {
 
 	redisKey := fmt.Sprintf(constants.ProducerTemplate, matchID)
-	producer, _ := utils.GetRedisKey(ctx, rds.RedisClient, redisKey)
+	producer, _ := utils.GetRedisKey(ctx, redisClient, redisKey)
 	producerID, _ := strconv.ParseInt(producer, 10, 64)
-	return producerID, rds.GetProducerStatus(ctx, producerID)
+	return producerID, rds.GetProducerStatus(ctx, redisClient, producerID)
 
 }
 
-func (rds *RedisFeed) keyExist(ctx context.Context, key string) bool {
+func (rds *RedisFeed) keyExist(ctx context.Context, redisClient *redis.Client, key string) bool {
 
-	check, err := utils.RedisKeyExists(ctx, rds.RedisClient, key)
+	check, err := utils.RedisKeyExists(ctx, redisClient, key)
 	if err != nil {
 
 		return false
@@ -900,12 +442,12 @@ func (rds *RedisFeed) keyExist(ctx context.Context, key string) bool {
 	return check
 }
 
-func (rds *RedisFeed) getAllKeysByPattern(ctx context.Context, keyPattern string) []string {
+func (rds *RedisFeed) getAllKeysByPattern(ctx context.Context, redisClient *redis.Client, keyPattern string) []string {
 
-	return utils.GetAllKeysByPattern(ctx, rds.RedisClient, keyPattern)
+	return utils.GetAllKeysByPattern(ctx, redisClient, keyPattern)
 }
 
-func (rds *RedisFeed) getAllMarketsOrderByPriority(ctx context.Context, producerID, matchID int64, marketOderList []models.MarketOrderList) []models.Market {
+func (rds *RedisFeed) getAllMarketsOrderByPriority(ctx context.Context, redisClient *redis.Client, producerID, matchID int64, marketOderList []models.MarketOrderList) []models.Market {
 
 	DebugMatchID, _ := strconv.ParseInt(os.Getenv("DEBUG_MATCH_ID"), 10, 64)
 
@@ -920,7 +462,7 @@ func (rds *RedisFeed) getAllMarketsOrderByPriority(ctx context.Context, producer
 	// namespace:table:matchID
 	keyName := fmt.Sprintf(constants.KeyTemplate, tableName, matchID)
 
-	keyExists := rds.keyExist(ctx, keyName)
+	keyExists := rds.keyExist(ctx, redisClient, keyName)
 
 	if !keyExists {
 
@@ -929,7 +471,7 @@ func (rds *RedisFeed) getAllMarketsOrderByPriority(ctx context.Context, producer
 
 	// get all redis keys (market keys) attached to this matchID
 	var keys []string
-	keysData, _ := utils.GetRedisKey(ctx, rds.RedisClient, fmt.Sprintf(constants.KeysFieldTemplate, keyName))
+	keysData, _ := utils.GetRedisKey(ctx, redisClient, fmt.Sprintf(constants.KeysFieldTemplate, keyName))
 	if DebugMatchID == matchID {
 
 		log.Printf("got market keys %s ", keysData)
@@ -949,7 +491,7 @@ func (rds *RedisFeed) getAllMarketsOrderByPriority(ctx context.Context, producer
 	// get value for each keys gotten
 	for _, key := range keys {
 
-		matchDataAsString, _ := utils.GetRedisKey(ctx, rds.RedisClient, key)
+		matchDataAsString, _ := utils.GetRedisKey(ctx, redisClient, key)
 
 		if DebugMatchID == matchID {
 
@@ -1093,83 +635,11 @@ func (rds *RedisFeed) orderByPriority(markets []models.Market, marketOderList []
 	return orderedMarkets
 }
 
-// DeleteMatchOdds Delete all odds and caches for the supplied match
-func (rds *RedisFeed) DeleteMatchOdds(ctx context.Context, matchID int64) {
-
-	var keysPattern []string
-
-	keysPattern = append(keysPattern, fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet))
-
-	// get table name based on producerID
-	tableNamePrematch := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
-	tableNameLive := fmt.Sprintf("%s:%s", NameSpace, constants.PreMatchSet)
-
-	// odds object
-	keyNameLive := fmt.Sprintf(constants.KeyTemplate, tableNameLive, matchID)
-	keyNamePrematch := fmt.Sprintf(constants.KeyTemplate, tableNamePrematch, matchID)
-
-	keysPattern = append(keysPattern, keyNameLive)
-	keysPattern = append(keysPattern, keyNamePrematch)
-
-	// individual markets
-	redisMarketKeyLive := fmt.Sprintf("%s:*", keyNameLive)
-	keysPattern = append(keysPattern, redisMarketKeyLive)
-
-	redisMarketPrematch := fmt.Sprintf("%s:*", keyNamePrematch)
-	keysPattern = append(keysPattern, redisMarketPrematch)
-
-	// producer
-	producerKey := fmt.Sprintf(constants.ProducerTemplate, matchID)
-	keysPattern = append(keysPattern, producerKey)
-
-	// fields key
-	fieldsKeyLive := fmt.Sprintf(constants.KeysFieldTemplate, fmt.Sprintf(constants.KeyTemplate, tableNameLive, matchID))
-	keysPattern = append(keysPattern, fieldsKeyLive)
-
-	fieldsKeyPrematch := fmt.Sprintf(constants.KeysFieldTemplate, fmt.Sprintf(constants.KeyTemplate, tableNamePrematch, matchID))
-	keysPattern = append(keysPattern, fieldsKeyPrematch)
-
-	// default market keys
-	defaultMarketKey := fmt.Sprintf("%s:default-market-id:%d", NameSpace, matchID)
-	keysPattern = append(keysPattern, defaultMarketKey)
-
-	// total market keys
-	totalMarketsKey := fmt.Sprintf("%s:total-markets:%d", NameSpace, matchID)
-	keysPattern = append(keysPattern, totalMarketsKey)
-
-	stasKey := fmt.Sprintf("fixture-stats:%d", matchID)
-	keysPattern = append(keysPattern, stasKey)
-
-	matchPriorityKey := fmt.Sprintf("match-priority:%d", matchID)
-	keysPattern = append(keysPattern, matchPriorityKey)
-
-	// delete match date
-	matchDateKeys := fmt.Sprintf("match-date:%d", matchID)
-	keysPattern = append(keysPattern, matchDateKeys)
-
-	sportsKey := fmt.Sprintf("sport-id:%d", matchID)
-	keysPattern = append(keysPattern, sportsKey)
-
-	for _, key := range keysPattern {
-
-		if strings.Contains(key, "*") {
-
-			utils.DeleteKeysByPattern(ctx, rds.RedisClient, key)
-
-		} else {
-
-			utils.DeleteRedisKey(ctx, rds.RedisClient, key)
-
-		}
-	}
-
-}
-
 // GetDefaultMarketID gets the default marketID for a particular sportID
-func (rds *RedisFeed) GetDefaultMarketID(ctx context.Context, matchID, sportID int64) int64 {
+func (rds *RedisFeed) GetDefaultMarketID(ctx context.Context, redisClient *redis.Client, matchID, sportID int64) int64 {
 
 	defaultMarketKey := fmt.Sprintf("%s:default-market-id:%d", NameSpace, matchID)
-	redisValue, _ := utils.GetRedisKey(ctx, rds.RedisClient, defaultMarketKey)
+	redisValue, _ := utils.GetRedisKey(ctx, redisClient, defaultMarketKey)
 	market, _ := strconv.ParseInt(redisValue, 10, 64)
 	if market > 0 {
 
@@ -1184,23 +654,23 @@ func (rds *RedisFeed) GetDefaultMarketID(ctx context.Context, matchID, sportID i
 	return 186
 }
 
-func (rds *RedisFeed) GetProducerStatus(ctx context.Context, producerID int64) int64 {
+func (rds *RedisFeed) GetProducerStatus(ctx context.Context, redisClient *redis.Client, producerID int64) int64 {
 
 	redisKey := fmt.Sprintf("producer:status:%d", producerID)
-	dt, _ := utils.GetRedisKey(ctx, rds.RedisClient, redisKey)
+	dt, _ := utils.GetRedisKey(ctx, redisClient, redisKey)
 	producerStatus, _ := strconv.ParseInt(dt, 10, 64)
 	return producerStatus
 
 }
 
 // GetFixtureStatus gets fixture status for the supplied matchID
-func (rds *RedisFeed) GetFixtureStatus(ctx context.Context, matchID int64) models.FixtureStatus {
+func (rds *RedisFeed) GetFixtureStatus(ctx context.Context, redisClient *redis.Client, matchID int64) models.FixtureStatus {
 
 	market := new(models.FixtureStatus)
 
 	redisKey := fmt.Sprintf("fixture-stats:%d", matchID)
 
-	data, _ := utils.GetRedisKey(ctx, rds.RedisClient, redisKey)
+	data, _ := utils.GetRedisKey(ctx, redisClient, redisKey)
 	if len(data) == 0 {
 
 		return models.FixtureStatus{
@@ -1222,16 +692,5 @@ func (rds *RedisFeed) GetFixtureStatus(ctx context.Context, matchID int64) model
 	}
 
 	return *market
-
-}
-
-// SetFixtureStatus sets fixture status for the supplied matchID
-func (rds *RedisFeed) SetFixtureStatus(ctx context.Context, matchID int64, fx models.FixtureStatus) error {
-
-	redisKey := fmt.Sprintf("fixture-stats:%d", matchID)
-
-	js, _ := json.Marshal(fx)
-
-	return utils.SetRedisKey(ctx, rds.RedisClient, redisKey, string(js))
 
 }
