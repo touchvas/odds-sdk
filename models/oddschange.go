@@ -46,6 +46,9 @@ type Outcome struct {
 	//OutcomeID outcome ID
 	OutcomeID string `json:"outcome_id"  validate:"required"`
 
+	//OutcomeID outcome ID
+	SelectionID string `json:"selection_id"  validate:"optional"`
+
 	//Odds odds for this particular selection
 	Odds float64 `json:"odds"  validate:"required"`
 
